@@ -75,7 +75,9 @@ public class CartService(ApplicationDbContext db, TimeProvider clock)
             return CartResult.Fail($"수량은 1~{MaxQuantityPerItem}개 사이로 선택하세요.");
         }
 
+        // 재고는 주문·취소 때 ExecuteUpdate로 바뀌므로, 추적 중인 낡은 값 대신 항상 DB에서 새로 읽는다
         var variant = await db.ProductVariants
+            .AsNoTracking()
             .Include(v => v.Product)
             .FirstOrDefaultAsync(v => v.Id == variantId, ct);
         if (variant is null || !variant.IsActive || !variant.Product.IsPublished)

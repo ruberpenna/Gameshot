@@ -29,6 +29,17 @@ dotnet run --project src/GameShot.Web --launch-profile http
 
 http://localhost:5120 에서 열린다. 개발 환경에서는 시작할 때 플랫폼·장르와 샘플 상품을 넣는다.
 
+## 관리자
+
+`/admin` (대시보드, 주문 처리, 상품·SKU·이미지 관리)은 Admin 역할만 들어갈 수 있다.
+회원가입한 뒤 그 이메일을 설정에 넣고 앱을 다시 시작하면 역할이 붙는다. 역할은 로그인할 때 반영되므로 다시 로그인한다.
+
+```
+dotnet user-secrets set "Admin:Emails:0" "me@example.com" --project src/GameShot.Web
+```
+
+운영에서는 환경 변수 `Admin__Emails__0`을 쓴다. 업로드한 상품 이미지는 `wwwroot/uploads/`에 저장되며 git에 넣지 않는다(DB와 함께 백업).
+
 ## 테스트
 
 ```

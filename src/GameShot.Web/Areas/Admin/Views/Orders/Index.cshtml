@@ -1,0 +1,49 @@
+@model PagedResult<AdminOrderRow>
+@{
+    ViewData["Title"] = "주문 관리";
+    var filter = (AdminOrderFilter)ViewData["Filter"]!;
+}
+
+<h1 class="h4 mb-3">주문 관리</h1>
+
+<ul class="nav nav-pills platform-tabs mb-3">
+    <li class="nav-item">
+        <a class="nav-link @(filter.Status is null ? "active" : "")" asp-action="Index" asp-route-Q="@filter.Q">전체</a>
+    </li>
+    @foreach (var status in Enum.GetValues<OrderStatus>())
+    {
+        <li class="nav-item">
+            <a class="nav-link @(filter.Status == status ? "active" : "")" asp-action="Index" asp-route-Status="@status" asp-route-Q="@filter.Q">@OrderService.StatusText(status)</a>
+        </li>
+    }
+</ul>
+
+<form method="get" asp-action="Index" class="d-flex gap-2 mb-3" style="max-width: 32rem">
+    @if (filter.Status is not null)
+    {
+        <input type="hidden" name="Status" value="@filter.Status" />
+    }
+    <input type="search" name="Q" value="@filter.Q" class="form-control" placeholder="주문번호, 받는 분, 연락처, 이메일" />
+    <button type="submit" class="btn btn-dark text-nowrap">검색</button>
+</form>
+
+<div class="card">
+    <div class="card-body p-0">
+        <partial name="_OrderTable" model="Model.Items" />
+    </div>
+</div>
+<p class="small text-muted mt-2">총 @Model.TotalCount.ToString("N0")건</p>
+
+@if (Model.TotalPages > 1)
+{
+    <nav aria-label="페이지">
+        <ul class="pagination pagination-sm">
+            @for (var p = 1; p <= Model.TotalPages; p++)
+            {
+                <li class="page-item @(p == Model.Page ? "active" : "")">
+                    <a class="page-link" asp-action="Index" asp-route-Status="@filter.Status" asp-route-Q="@filter.Q" asp-route-Page="@p">@p</a>
+                </li>
+            }
+        </ul>
+    </nav>
+}

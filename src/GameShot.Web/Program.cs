@@ -2,6 +2,8 @@ using System.Globalization;
 using GameShot.Web.Data;
 using GameShot.Web.Models;
 using GameShot.Web.Services;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,6 +18,7 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 // 메일 발송을 붙이기 전까지는 이메일 인증 없이 가입
 builder.Services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = false)
+    .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>();
 builder.Services.AddControllersWithViews();
 
@@ -25,12 +28,23 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<CartService>();
 builder.Services.AddScoped<CartContext>();
 builder.Services.AddScoped<OrderService>();
+builder.Services.AddScoped<ProductAdminService>();
+builder.Services.AddScoped<AdminDashboardService>();
+builder.Services.AddSingleton<IImageStorage, LocalImageStorage>();
+
+// 관리자 화면 업로드 한도 (이미지 5MB + 여유)
+builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = 6 * 1024 * 1024);
 
 var korean = new CultureInfo("ko-KR");
 CultureInfo.DefaultThreadCurrentCulture = korean;
 CultureInfo.DefaultThreadCurrentUICulture = korean;
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    await AdminBootstrap.RunAsync(scope.ServiceProvider, app.Configuration, app.Logger);
+}
 
 if (app.Environment.IsDevelopment())
 {
@@ -53,6 +67,12 @@ app.UseRouting();
 app.UseAuthorization();
 
 app.MapStaticAssets();
+// 관리자가 올린 상품 이미지 (빌드 때 없던 파일이라 MapStaticAssets가 모름)
+app.UseStaticFiles();
+
+app.MapControllerRoute(
+    name: "areas",
+    pattern: "{area:exists}/{controller=Dashboard}/{action=Index}/{id?}");
 
 app.MapControllerRoute(
     name: "default",

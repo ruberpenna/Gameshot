@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>@ViewData["Title"] - GameShot 관리자</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/admin.css" asp-append-version="true" />
+</head>
+<body class="admin">
+    @{
+        var controller = ViewContext.RouteData.Values["controller"] as string;
+        string Active(string name) => controller == name ? "active" : "";
+    }
+    <nav class="navbar navbar-expand navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" asp-area="Admin" asp-controller="Dashboard" asp-action="Index">GameShot <small class="text-warning">관리자</small></a>
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item"><a class="nav-link @Active("Dashboard")" asp-area="Admin" asp-controller="Dashboard" asp-action="Index">대시보드</a></li>
+                <li class="nav-item"><a class="nav-link @Active("Orders")" asp-area="Admin" asp-controller="Orders" asp-action="Index">주문</a></li>
+                <li class="nav-item"><a class="nav-link @Active("Products")" asp-area="Admin" asp-controller="Products" asp-action="Index">상품</a></li>
+            </ul>
+            <span class="navbar-text small me-3 d-none d-md-inline">@User.Identity?.Name</span>
+            <a class="btn btn-sm btn-outline-light" asp-area="" asp-controller="Home" asp-action="Index">쇼핑몰로</a>
+        </div>
+    </nav>
+    <div class="container-fluid py-4 admin-main">
+        <partial name="_Flash" />
+        @RenderBody()
+    </div>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

@@ -41,6 +41,21 @@
                             <br /><span class="text-muted">@KoreanTime.FromUtc(paidAt).ToString("yyyy.MM.dd HH:mm") 완료</span>
                         }
                     </dd>
+                    @if (Model.TrackingNumber is not null)
+                    {
+                        <dt class="col-4 fw-normal text-muted">배송</dt>
+                        <dd class="col-8">
+                            @Model.Courier @Model.TrackingNumber
+                            @if (Model.ShippedAt is { } shippedAt)
+                            {
+                                <br /><span class="text-muted">@KoreanTime.FromUtc(shippedAt).ToString("yyyy.MM.dd") 발송</span>
+                            }
+                            @if (Model.DeliveredAt is { } deliveredAt)
+                            {
+                                <br /><span class="text-muted">@KoreanTime.FromUtc(deliveredAt).ToString("yyyy.MM.dd") 배송 완료</span>
+                            }
+                        </dd>
+                    }
                     @if (Model.CancelledAt is { } cancelledAt)
                     {
                         <dt class="col-4 fw-normal text-muted">취소일시</dt>

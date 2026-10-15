@@ -11,6 +11,24 @@ public record OrderResult(bool Success, string Message, string? OrderNumber = nu
     public static OrderResult Fail(string message) => new(false, message);
 }
 
+public record AdminOrderFilter
+{
+    public OrderStatus? Status { get; init; }
+    /// <summary>주문번호·받는 분·연락처·회원 이메일 검색</summary>
+    public string? Q { get; init; }
+    public int Page { get; init; } = 1;
+}
+
+public record AdminOrderRow(
+    string OrderNumber,
+    DateTime CreatedAt,
+    OrderStatus Status,
+    string? CustomerEmail,
+    string RecipientName,
+    string FirstItemTitle,
+    int ItemCount,
+    int Total);
+
 public record OrderSummary(
     string OrderNumber,
     DateTime CreatedAt,
@@ -105,11 +123,14 @@ public class OrderService(ApplicationDbContext db, CartService carts, TimeProvid
             db.Orders.Add(order);
             await db.SaveChangesAsync(ct);
 
-            // 주문한 상품만 장바구니에서 뺀다
+            // 주문한 상품만 장바구니에서 뺀다.
+            // ExecuteDelete는 변경 추적을 거치지 않아, 같은 DbContext에 남은 장바구니 객체가 낡은 상태가 되므로 추적을 통해 지운다
             var orderedItemIds = cart.Lines.Select(l => l.ItemId).ToList();
-            await db.CartItems
+            var orderedItems = await db.CartItems
                 .Where(i => i.Cart.UserId == userId && orderedItemIds.Contains(i.Id))
-                .ExecuteDeleteAsync(ct);
+                .ToListAsync(ct);
+            db.CartItems.RemoveRange(orderedItems);
+            await db.SaveChangesAsync(ct);
 
             await tx.CommitAsync(ct);
             return OrderResult.Ok("주문서가 접수되었습니다. 결제를 진행해 주세요.", order.OrderNumber);
@@ -179,7 +200,122 @@ public class OrderService(ApplicationDbContext db, CartService carts, TimeProvid
             })
             .FirstOrDefaultAsync(ct);
 
-    private async Task<OrderResult> CancelCoreAsync(string userId, string orderNumber, OrderStatus[] cancellable,
+    // ---- 관리자 ----
+
+    /// <summary>관리자가 취소할 수 있는 상태 (발송 전까지)</summary>
+    public static readonly OrderStatus[] AdminCancellable = [OrderStatus.PendingPayment, OrderStatus.Paid, OrderStatus.Preparing];
+
+    /// <summary>관리자가 다음 단계로 넘길 수 있는 상태와 그 다음 상태</summary>
+    public static OrderStatus? NextStatus(OrderStatus status) => status switch
+    {
+        OrderStatus.Paid => OrderStatus.Preparing,
+        OrderStatus.Preparing => OrderStatus.Shipped,
+        OrderStatus.Shipped => OrderStatus.Delivered,
+        _ => null,
+    };
+
+    /// <summary>결제 완료 → 배송 준비</summary>
+    public async Task<OrderResult> StartPreparingAsync(string orderNumber, CancellationToken ct = default)
+    {
+        var updated = await db.Orders
+            .Where(o => o.OrderNumber == orderNumber && o.Status == OrderStatus.Paid)
+            .ExecuteUpdateAsync(s => s.SetProperty(o => o.Status, OrderStatus.Preparing), ct);
+        return updated == 1
+            ? OrderResult.Ok("배송 준비중으로 바꿨습니다.", orderNumber)
+            : OrderResult.Fail("결제 완료 상태인 주문만 배송 준비로 바꿀 수 있습니다.");
+    }
+
+    /// <summary>배송 준비 → 발송 (택배사·송장번호 필수)</summary>
+    public async Task<OrderResult> ShipAsync(string orderNumber, string? courier, string? trackingNumber, CancellationToken ct = default)
+    {
+        courier = courier?.Trim();
+        trackingNumber = trackingNumber?.Trim();
+        if (string.IsNullOrEmpty(courier) || string.IsNullOrEmpty(trackingNumber))
+        {
+            return OrderResult.Fail("택배사와 송장번호를 입력하세요.");
+        }
+        if (courier.Length > 30 || trackingNumber.Length > 30)
+        {
+            return OrderResult.Fail("택배사·송장번호는 30자 이내로 입력하세요.");
+        }
+
+        var now = clock.GetUtcNow().UtcDateTime;
+        var updated = await db.Orders
+            .Where(o => o.OrderNumber == orderNumber && o.Status == OrderStatus.Preparing)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(o => o.Status, OrderStatus.Shipped)
+                .SetProperty(o => o.Courier, courier)
+                .SetProperty(o => o.TrackingNumber, trackingNumber)
+                .SetProperty(o => o.ShippedAt, now), ct);
+        return updated == 1
+            ? OrderResult.Ok("발송 처리했습니다.", orderNumber)
+            : OrderResult.Fail("배송 준비중인 주문만 발송 처리할 수 있습니다.");
+    }
+
+    /// <summary>발송 → 배송 완료</summary>
+    public async Task<OrderResult> MarkDeliveredAsync(string orderNumber, CancellationToken ct = default)
+    {
+        var now = clock.GetUtcNow().UtcDateTime;
+        var updated = await db.Orders
+            .Where(o => o.OrderNumber == orderNumber && o.Status == OrderStatus.Shipped)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(o => o.Status, OrderStatus.Delivered)
+                .SetProperty(o => o.DeliveredAt, now), ct);
+        return updated == 1
+            ? OrderResult.Ok("배송 완료로 바꿨습니다.", orderNumber)
+            : OrderResult.Fail("배송중인 주문만 배송 완료로 바꿀 수 있습니다.");
+    }
+
+    /// <summary>관리자 취소 (발송 전까지, 재고 복구)</summary>
+    public Task<OrderResult> AdminCancelAsync(string orderNumber, CancellationToken ct = default) =>
+        CancelCoreAsync(null, orderNumber, AdminCancellable, "주문을 취소하고 재고를 되돌렸습니다.", ct);
+
+    public Task<Order?> FindForAdminAsync(string orderNumber, CancellationToken ct = default) =>
+        db.Orders
+            .AsNoTracking()
+            .Include(o => o.User)
+            .Include(o => o.Items.OrderBy(i => i.Id))
+            .FirstOrDefaultAsync(o => o.OrderNumber == orderNumber, ct);
+
+    public async Task<PagedResult<AdminOrderRow>> SearchForAdminAsync(AdminOrderFilter filter, CancellationToken ct = default)
+    {
+        const int pageSize = 20;
+        var orders = db.Orders.AsNoTracking();
+        if (filter.Status is { } status)
+        {
+            orders = orders.Where(o => o.Status == status);
+        }
+        if (!string.IsNullOrWhiteSpace(filter.Q))
+        {
+            var q = filter.Q.Trim();
+            orders = orders.Where(o => o.OrderNumber.Contains(q)
+                || o.Shipping.RecipientName.Contains(q)
+                || o.Shipping.Phone.Contains(q)
+                || (o.User.Email != null && o.User.Email.Contains(q)));
+        }
+
+        var total = await orders.CountAsync(ct);
+        var page = Math.Clamp(filter.Page, 1, Math.Max(1, (int)Math.Ceiling(total / (double)pageSize)));
+        var rows = await orders
+            .OrderByDescending(o => o.CreatedAt)
+            .ThenByDescending(o => o.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(o => new AdminOrderRow(
+                o.OrderNumber,
+                o.CreatedAt,
+                o.Status,
+                o.User.Email,
+                o.Shipping.RecipientName,
+                o.Items.OrderBy(i => i.Id).Select(i => i.ProductTitle).FirstOrDefault() ?? "",
+                o.Items.Count,
+                o.Total))
+            .ToListAsync(ct);
+        return new PagedResult<AdminOrderRow>(rows, page, pageSize, total);
+    }
+
+    /// <param name="userId">회원 본인 취소면 회원 Id, 관리자 취소면 null</param>
+    private async Task<OrderResult> CancelCoreAsync(string? userId, string orderNumber, OrderStatus[] cancellable,
         string message, CancellationToken ct)
     {
         var strategy = db.Database.CreateExecutionStrategy();
@@ -189,7 +325,7 @@ public class OrderService(ApplicationDbContext db, CartService carts, TimeProvid
             var now = clock.GetUtcNow().UtcDateTime;
 
             var orderId = await db.Orders
-                .Where(o => o.UserId == userId && o.OrderNumber == orderNumber)
+                .Where(o => o.OrderNumber == orderNumber && (userId == null || o.UserId == userId))
                 .Select(o => (int?)o.Id)
                 .FirstOrDefaultAsync(ct);
             // 상태 조건부 변경이 성공한 요청만 재고를 되돌린다 (중복 취소 방지)

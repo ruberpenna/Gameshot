@@ -1,0 +1,87 @@
+@model DashboardView
+@{
+    ViewData["Title"] = "대시보드";
+}
+
+<h1 class="h4 mb-4">대시보드</h1>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="card stat-card h-100"><div class="card-body">
+            <div class="small text-muted">오늘 주문</div>
+            <div class="stat-value">@Model.TodayOrders.ToString("N0")건</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card stat-card h-100"><div class="card-body">
+            <div class="small text-muted">오늘 매출</div>
+            <div class="stat-value">@Model.TodaySales.ToString("N0")원</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card stat-card h-100"><div class="card-body">
+            <div class="small text-muted">이번 달 매출</div>
+            <div class="stat-value">@Model.MonthSales.ToString("N0")원</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <a class="card stat-card h-100 text-decoration-none border-primary" asp-controller="Orders" asp-action="Index" asp-route-Status="@OrderStatus.Paid">
+            <div class="card-body">
+                <div class="small text-muted">처리할 주문 (결제 완료)</div>
+                <div class="stat-value text-primary">@Model.Count(OrderStatus.Paid).ToString("N0")건</div>
+            </div>
+        </a>
+    </div>
+</div>
+<p class="small text-muted mt-n2 mb-4">매출은 결제 완료 이후 단계(취소 제외) 주문 합계, 날짜는 한국 시간 기준입니다.</p>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-header bg-white d-flex justify-content-between">
+                <strong>최근 주문</strong>
+                <a class="small" asp-controller="Orders" asp-action="Index">전체 보기</a>
+            </div>
+            <div class="card-body p-0">
+                <partial name="_OrderTable" model="Model.RecentOrders" />
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card mb-4">
+            <div class="card-header bg-white"><strong>상태별 주문</strong></div>
+            <ul class="list-group list-group-flush">
+                @foreach (var status in Enum.GetValues<OrderStatus>())
+                {
+                    <li class="list-group-item d-flex justify-content-between">
+                        <a asp-controller="Orders" asp-action="Index" asp-route-Status="@status" class="text-body text-decoration-none">
+                            <partial name="~/Views/Orders/_OrderStatusBadge.cshtml" model="status" />
+                        </a>
+                        <span>@Model.Count(status).ToString("N0")</span>
+                    </li>
+                }
+            </ul>
+        </div>
+        <div class="card">
+            <div class="card-header bg-white"><strong>재고 부족</strong> <span class="small text-muted">(@(AdminDashboardService.LowStockThreshold)개 이하)</span></div>
+            @if (Model.LowStock.Count == 0)
+            {
+                <div class="card-body small text-muted">재고가 부족한 옵션이 없습니다.</div>
+            }
+            else
+            {
+                <ul class="list-group list-group-flush">
+                    @foreach (var row in Model.LowStock)
+                    {
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <a asp-controller="Products" asp-action="Edit" asp-route-id="@row.ProductId" class="text-body">
+                                @row.ProductTitle <span class="small text-muted">@row.PlatformName · @row.Sku</span>
+                            </a>
+                            <span class="badge @(row.Stock == 0 ? "text-bg-danger" : "text-bg-warning")">@(row.Stock == 0 ? "품절" : $"{row.Stock}개")</span>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    </div>
+</div>

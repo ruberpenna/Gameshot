@@ -1,0 +1,114 @@
+@model Order
+@{
+    ViewData["Title"] = $"주문 {Model.OrderNumber}";
+    string Time(DateTime? utc) => utc is { } t ? KoreanTime.FromUtc(t).ToString("yyyy.MM.dd HH:mm") : "-";
+    string[] couriers = ["CJ대한통운", "한진택배", "롯데택배", "우체국택배", "로젠택배"];
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb small">
+        <li class="breadcrumb-item"><a asp-action="Index">주문 관리</a></li>
+        <li class="breadcrumb-item active" aria-current="page">@Model.OrderNumber</li>
+    </ol>
+</nav>
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-4">
+    <h1 class="h4 mb-0">주문 @Model.OrderNumber</h1>
+    <partial name="~/Views/Orders/_OrderStatusBadge.cshtml" model="Model.Status" />
+</div>
+
+<div class="row g-4">
+    <div class="col-xl-8">
+        <div class="card mb-4">
+            <div class="card-header bg-white"><strong>주문 상품</strong></div>
+            <div class="card-body">
+                <partial name="~/Views/Orders/_OrderItems.cshtml" model="Model" />
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header bg-white"><strong>진행 기록</strong></div>
+            <ul class="list-group list-group-flush small">
+                <li class="list-group-item d-flex justify-content-between"><span>주문 접수</span><span>@Time(Model.CreatedAt)</span></li>
+                <li class="list-group-item d-flex justify-content-between"><span>결제 완료</span><span>@Time(Model.PaidAt)</span></li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>발송 @(Model.TrackingNumber is null ? "" : $"({Model.Courier} {Model.TrackingNumber})")</span>
+                    <span>@Time(Model.ShippedAt)</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between"><span>배송 완료</span><span>@Time(Model.DeliveredAt)</span></li>
+                @if (Model.CancelledAt is not null)
+                {
+                    <li class="list-group-item d-flex justify-content-between text-danger"><span>주문 취소</span><span>@Time(Model.CancelledAt)</span></li>
+                }
+            </ul>
+        </div>
+    </div>
+
+    <div class="col-xl-4">
+        <div class="card mb-4">
+            <div class="card-header bg-white"><strong>처리</strong></div>
+            <div class="card-body">
+                @switch (Model.Status)
+                {
+                    case OrderStatus.PendingPayment:
+                        <p class="small text-muted">고객이 아직 결제하지 않았습니다. 재고는 잡혀 있습니다.</p>
+                        break;
+                    case OrderStatus.Paid:
+                        <form method="post" asp-action="Prepare" asp-route-orderNumber="@Model.OrderNumber" class="d-grid">
+                            <button type="submit" class="btn btn-primary">배송 준비 시작</button>
+                        </form>
+                        break;
+                    case OrderStatus.Preparing:
+                        <form method="post" asp-action="Ship" asp-route-orderNumber="@Model.OrderNumber" class="vstack gap-2">
+                            <select name="courier" class="form-select" required>
+                                @foreach (var c in couriers)
+                                {
+                                    <option>@c</option>
+                                }
+                            </select>
+                            <input name="trackingNumber" class="form-control" placeholder="송장번호" required maxlength="30" inputmode="numeric" />
+                            <button type="submit" class="btn btn-primary">발송 처리</button>
+                        </form>
+                        break;
+                    case OrderStatus.Shipped:
+                        <form method="post" asp-action="Deliver" asp-route-orderNumber="@Model.OrderNumber" class="d-grid">
+                            <button type="submit" class="btn btn-success">배송 완료 처리</button>
+                        </form>
+                        break;
+                    default:
+                        <p class="small text-muted mb-0">더 처리할 단계가 없습니다.</p>
+                        break;
+                }
+
+                @if (OrderService.AdminCancellable.Contains(Model.Status))
+                {
+                    <hr />
+                    <form method="post" asp-action="Cancel" asp-route-orderNumber="@Model.OrderNumber" class="d-grid"
+                          onsubmit="return confirm('이 주문을 취소하고 재고를 되돌릴까요?')">
+                        <button type="submit" class="btn btn-outline-danger btn-sm">주문 취소 (재고 복구)</button>
+                    </form>
+                }
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header bg-white"><strong>주문자</strong></div>
+            <div class="card-body small">
+                @Model.User.Email<br />
+                <span class="text-muted">가입 @Time(Model.User.CreatedAt)</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header bg-white"><strong>배송지</strong></div>
+            <div class="card-body small">
+                @Model.Shipping.RecipientName · @Model.Shipping.Phone<br />
+                (@Model.Shipping.PostalCode) @Model.Shipping.Address1 @Model.Shipping.Address2
+                @if (Model.Shipping.Memo is not null)
+                {
+                    <br /><span class="text-muted">메모: @Model.Shipping.Memo</span>
+                }
+            </div>
+        </div>
+    </div>
+</div>

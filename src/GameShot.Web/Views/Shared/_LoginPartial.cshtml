@@ -6,6 +6,12 @@
 <ul class="navbar-nav">
 @if (SignInManager.IsSignedIn(User))
 {
+    @if (User.IsInRole(GameShot.Web.Data.AdminBootstrap.AdminRole))
+    {
+        <li class="nav-item">
+            <a class="nav-link text-danger fw-semibold" asp-area="Admin" asp-controller="Dashboard" asp-action="Index">관리자</a>
+        </li>
+    }
     <li class="nav-item">
         <a class="nav-link text-dark" asp-area="" asp-controller="Orders" asp-action="Index">주문 내역</a>
     </li>

@@ -1,0 +1,79 @@
+@model PagedResult<AdminProductRow>
+@{
+    ViewData["Title"] = "상품 관리";
+    var q = ViewData["Q"] as string;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">상품 관리</h1>
+    <a class="btn btn-dark" asp-action="Create">상품 등록</a>
+</div>
+
+<form method="get" asp-action="Index" class="d-flex gap-2 mb-3" style="max-width: 32rem">
+    <input type="search" name="q" value="@q" class="form-control" placeholder="상품명, URL 식별자, SKU" />
+    <button type="submit" class="btn btn-dark text-nowrap">검색</button>
+</form>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover admin-table mb-0">
+            <thead class="table-light small">
+                <tr>
+                    <th></th>
+                    <th>상품명</th>
+                    <th>발매일</th>
+                    <th class="num">옵션</th>
+                    <th class="num">재고 합계</th>
+                    <th class="num">최저 판매가</th>
+                    <th>공개</th>
+                </tr>
+            </thead>
+            <tbody class="small">
+                @foreach (var p in Model.Items)
+                {
+                    <tr>
+                        <td style="width: 1%">
+                            @if (p.ThumbnailPath is not null)
+                            {
+                                <img src="@p.ThumbnailPath" alt="" class="admin-thumb" />
+                            }
+                        </td>
+                        <td>
+                            <a asp-action="Edit" asp-route-id="@p.Id" class="fw-semibold">@p.Title</a><br />
+                            <span class="text-muted">@p.Slug</span>
+                        </td>
+                        <td>@p.ReleaseDate?.ToString("yyyy.MM.dd")</td>
+                        <td class="num">@p.VariantCount</td>
+                        <td class="num @(p.TotalStock <= AdminDashboardService.LowStockThreshold ? "text-danger fw-semibold" : "")">@p.TotalStock</td>
+                        <td class="num">@(p.MinSalePrice?.ToString("N0") ?? "-")</td>
+                        <td>
+                            @if (p.IsPublished)
+                            {
+                                <span class="badge text-bg-success">공개</span>
+                            }
+                            else
+                            {
+                                <span class="badge text-bg-secondary">비공개</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+<p class="small text-muted mt-2">총 @Model.TotalCount.ToString("N0")개</p>
+
+@if (Model.TotalPages > 1)
+{
+    <nav aria-label="페이지">
+        <ul class="pagination pagination-sm">
+            @for (var p = 1; p <= Model.TotalPages; p++)
+            {
+                <li class="page-item @(p == Model.Page ? "active" : "")">
+                    <a class="page-link" asp-action="Index" asp-route-q="@q" asp-route-page="@p">@p</a>
+                </li>
+            }
+        </ul>
+    </nav>
+}

@@ -1,0 +1,197 @@
+@model ProductEditViewModel
+@{
+    ViewData["Title"] = Model.IsNew ? "상품 등록" : $"상품 수정 - {Model.Form.Title}";
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb small">
+        <li class="breadcrumb-item"><a asp-action="Index">상품 관리</a></li>
+        <li class="breadcrumb-item active" aria-current="page">@(Model.IsNew ? "상품 등록" : Model.Form.Title)</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h4 mb-0">@(Model.IsNew ? "상품 등록" : "상품 수정")</h1>
+    @if (!Model.IsNew && Model.Form.IsPublished)
+    {
+        <a class="btn btn-sm btn-outline-secondary" asp-area="" asp-controller="Products" asp-action="Details" asp-route-slug="@Model.Form.Slug" target="_blank">쇼핑몰에서 보기</a>
+    }
+</div>
+
+<form method="post" enctype="multipart/form-data"
+      asp-action="@(Model.IsNew ? "Create" : "Edit")" asp-route-id="@Model.Id" class="card mb-4">
+    <div class="card-header bg-white"><strong>기본 정보</strong></div>
+    <div class="card-body">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+        <div class="row g-3">
+            <div class="col-md-8">
+                <div class="row g-3">
+                    <div class="col-md-7">
+                        <label asp-for="Form.Title" class="form-label"></label>
+                        <input asp-for="Form.Title" class="form-control" />
+                        <span asp-validation-for="Form.Title" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-5">
+                        <label asp-for="Form.Slug" class="form-label"></label>
+                        <input asp-for="Form.Slug" class="form-control" placeholder="elden-ring" />
+                        <span asp-validation-for="Form.Slug" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Form.Publisher" class="form-label"></label>
+                        <input asp-for="Form.Publisher" class="form-control" />
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Form.ReleaseDate" class="form-label"></label>
+                        <input asp-for="Form.ReleaseDate" type="date" class="form-control" />
+                        <div class="form-text">오늘 이후면 예약판매로 표시됩니다.</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Form.GenreId" class="form-label"></label>
+                        <select asp-for="Form.GenreId" class="form-select"
+                                asp-items="@(new SelectList(Model.Genres, nameof(Genre.Id), nameof(Genre.Name)))">
+                            <option value="">선택 안 함</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="Form.Summary" class="form-label"></label>
+                        <input asp-for="Form.Summary" class="form-control" />
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="Form.Description" class="form-label"></label>
+                        <textarea asp-for="Form.Description" class="form-control" rows="5"></textarea>
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            <input asp-for="Form.IsPublished" class="form-check-input" role="switch" />
+                            <label asp-for="Form.IsPublished" class="form-check-label">쇼핑몰에 공개</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" for="thumbnail">대표 이미지</label>
+                <div class="mb-2 text-center bg-body-tertiary rounded p-2">
+                    <img id="thumbPreview" src="@(Model.ThumbnailPath ?? "")" alt="" class="img-fluid @(Model.ThumbnailPath is null ? "d-none" : "")" style="max-height: 260px" />
+                    @if (Model.ThumbnailPath is null)
+                    {
+                        <div id="thumbEmpty" class="small text-muted py-5">이미지 없음</div>
+                    }
+                </div>
+                <input type="file" name="thumbnail" id="thumbnail" class="form-control" accept=".jpg,.jpeg,.png,.webp" />
+                <div class="form-text">jpg·png·webp, 5MB 이하. 새로 올리면 기존 이미지를 바꿉니다.</div>
+            </div>
+        </div>
+    </div>
+    <div class="card-footer bg-white text-end">
+        <button type="submit" class="btn btn-dark">@(Model.IsNew ? "등록" : "저장")</button>
+    </div>
+</form>
+
+@if (!Model.IsNew)
+{
+    var platforms = new SelectList(Model.Platforms, nameof(Platform.Id), nameof(Platform.Name));
+    <div class="card">
+        <div class="card-header bg-white d-flex justify-content-between">
+            <strong>판매 옵션 (SKU)</strong>
+            <span class="small text-muted">장바구니·주문 기록이 남아 있어 삭제 대신 '판매중'을 끕니다.</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table admin-table variant-table mb-0 small">
+                <thead class="table-light">
+                    <tr>
+                        <th>플랫폼</th>
+                        <th>SKU</th>
+                        <th>에디션</th>
+                        <th>언어</th>
+                        <th>상태</th>
+                        <th>정가</th>
+                        <th>판매가</th>
+                        <th>재고</th>
+                        <th>판매중</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var v in Model.Variants)
+                    {
+                        var formId = $"variant-{v.Id}";
+                        <tr class="@(v.IsActive ? "" : "table-secondary")">
+                            <td>
+                                <select name="PlatformId" form="@formId" class="form-select form-select-sm">
+                                    @foreach (var p in Model.Platforms)
+                                    {
+                                        <option value="@p.Id" selected="@(p.Id == v.PlatformId)">@p.Name</option>
+                                    }
+                                </select>
+                            </td>
+                            <td><input name="Sku" form="@formId" value="@v.Sku" class="form-control form-control-sm" required /></td>
+                            <td><input name="Edition" form="@formId" value="@v.Edition" class="form-control form-control-sm" required /></td>
+                            <td><input name="Language" form="@formId" value="@v.Language" class="form-control form-control-sm" required /></td>
+                            <td>
+                                <select name="Condition" form="@formId" class="form-select form-select-sm">
+                                    <option value="New" selected="@(v.Condition == ItemCondition.New)">신품</option>
+                                    <option value="Used" selected="@(v.Condition == ItemCondition.Used)">중고</option>
+                                </select>
+                            </td>
+                            <td><input name="ListPrice" form="@formId" value="@v.ListPrice" type="number" min="0" class="form-control form-control-sm w-price" /></td>
+                            <td><input name="SalePrice" form="@formId" value="@v.SalePrice" type="number" min="0" class="form-control form-control-sm w-price" /></td>
+                            <td><input name="Stock" form="@formId" value="@v.Stock" type="number" min="0" class="form-control form-control-sm w-stock @(v.Stock <= AdminDashboardService.LowStockThreshold ? "border-danger" : "")" /></td>
+                            <td class="text-center">
+                                <input type="checkbox" name="IsActive" value="true" form="@formId" class="form-check-input" checked="@v.IsActive" />
+                                <input type="hidden" name="IsActive" value="false" form="@formId" />
+                            </td>
+                            <td><button type="submit" form="@formId" class="btn btn-sm btn-outline-dark">저장</button></td>
+                        </tr>
+                    }
+                    @{ var newId = "variant-new"; }
+                    <tr class="table-light">
+                        <td>
+                            <select name="PlatformId" form="@newId" class="form-select form-select-sm" required asp-items="platforms">
+                                <option value="">플랫폼</option>
+                            </select>
+                        </td>
+                        <td><input name="Sku" form="@newId" class="form-control form-control-sm" placeholder="PS5-XXX-NEW" required /></td>
+                        <td><input name="Edition" form="@newId" value="일반판" class="form-control form-control-sm" required /></td>
+                        <td><input name="Language" form="@newId" value="한글판" class="form-control form-control-sm" required /></td>
+                        <td>
+                            <select name="Condition" form="@newId" class="form-select form-select-sm">
+                                <option value="New">신품</option>
+                                <option value="Used">중고</option>
+                            </select>
+                        </td>
+                        <td><input name="ListPrice" form="@newId" type="number" min="0" class="form-control form-control-sm w-price" required /></td>
+                        <td><input name="SalePrice" form="@newId" type="number" min="0" class="form-control form-control-sm w-price" required /></td>
+                        <td><input name="Stock" form="@newId" type="number" min="0" value="0" class="form-control form-control-sm w-stock" /></td>
+                        <td class="text-center">
+                            <input type="checkbox" name="IsActive" value="true" form="@newId" class="form-check-input" checked />
+                            <input type="hidden" name="IsActive" value="false" form="@newId" />
+                        </td>
+                        <td><button type="submit" form="@newId" class="btn btn-sm btn-dark">추가</button></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        @* 표 안에는 form을 둘 수 없어서 바깥에 두고 form 속성으로 연결한다 *@
+        @foreach (var v in Model.Variants)
+        {
+            <form id="variant-@v.Id" method="post" asp-action="UpdateVariant" asp-route-variantId="@v.Id">
+                <input type="hidden" name="productId" value="@Model.Id" />
+            </form>
+        }
+        <form id="variant-new" method="post" asp-action="AddVariant" asp-route-id="@Model.Id"></form>
+    </div>
+}
+
+@section Scripts {
+    <script>
+        // 고른 이미지를 저장 전에 미리 보기
+        document.getElementById('thumbnail').addEventListener('change', e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const img = document.getElementById('thumbPreview');
+            img.src = URL.createObjectURL(file);
+            img.classList.remove('d-none');
+            document.getElementById('thumbEmpty')?.remove();
+        });
+    </script>
+}

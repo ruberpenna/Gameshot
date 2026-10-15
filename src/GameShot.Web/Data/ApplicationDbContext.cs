@@ -100,6 +100,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             e.HasIndex(o => o.OrderNumber).IsUnique();
             e.HasIndex(o => new { o.UserId, o.CreatedAt });
             e.Property(o => o.PaymentMethod).HasMaxLength(30);
+            e.Property(o => o.Courier).HasMaxLength(30);
+            e.Property(o => o.TrackingNumber).HasMaxLength(30);
+            e.HasIndex(o => new { o.Status, o.CreatedAt });
             // 회원을 지워도 주문 기록은 남겨야 하므로 연쇄 삭제하지 않는다
             e.HasOne(o => o.User).WithMany().OnDelete(DeleteBehavior.Restrict);
             e.ComplexProperty(o => o.Shipping, s =>

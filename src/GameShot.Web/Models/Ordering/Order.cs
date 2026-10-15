@@ -47,7 +47,15 @@ public class Order
 
     public DateTime CreatedAt { get; set; }
     public DateTime? PaidAt { get; set; }
+    public DateTime? ShippedAt { get; set; }
+    public DateTime? DeliveredAt { get; set; }
     public DateTime? CancelledAt { get; set; }
+
+    /// <summary>택배사 (발송 처리 때 입력)</summary>
+    public string? Courier { get; set; }
+
+    /// <summary>송장번호</summary>
+    public string? TrackingNumber { get; set; }
 
     public ICollection<OrderItem> Items { get; set; } = [];
 

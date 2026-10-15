@@ -483,3 +483,6 @@ $RECYCLE.BIN/
 
 # DB 서버에서 setup-db.ps1이 남기는 연결 문자열 파일
 gameshot-connection.txt
+
+# 관리자가 올린 상품 이미지 (DB와 함께 백업할 데이터)
+src/GameShot.Web/wwwroot/uploads/
