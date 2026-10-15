@@ -1,0 +1,78 @@
+@using GameShot.Web.Models.Ordering
+@using GameShot.Web.Services
+@model Order
+@{
+    ViewData["Title"] = $"주문 {Model.OrderNumber}";
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb small">
+        <li class="breadcrumb-item"><a asp-action="Index">주문 내역</a></li>
+        <li class="breadcrumb-item active" aria-current="page">@Model.OrderNumber</li>
+    </ol>
+</nav>
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-4">
+    <h1 class="h4 mb-0">주문 @Model.OrderNumber</h1>
+    <partial name="_OrderStatusBadge" model="Model.Status" />
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="h6 mb-3">주문 상품</h2>
+                <partial name="_OrderItems" model="Model" />
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card mb-3">
+            <div class="card-body small">
+                <h2 class="h6 mb-3">주문 정보</h2>
+                <dl class="row mb-0">
+                    <dt class="col-4 fw-normal text-muted">주문일시</dt>
+                    <dd class="col-8">@KoreanTime.FromUtc(Model.CreatedAt).ToString("yyyy.MM.dd HH:mm")</dd>
+                    <dt class="col-4 fw-normal text-muted">결제</dt>
+                    <dd class="col-8">
+                        @Model.PaymentMethod
+                        @if (Model.PaidAt is { } paidAt)
+                        {
+                            <br /><span class="text-muted">@KoreanTime.FromUtc(paidAt).ToString("yyyy.MM.dd HH:mm") 완료</span>
+                        }
+                    </dd>
+                    @if (Model.CancelledAt is { } cancelledAt)
+                    {
+                        <dt class="col-4 fw-normal text-muted">취소일시</dt>
+                        <dd class="col-8">@KoreanTime.FromUtc(cancelledAt).ToString("yyyy.MM.dd HH:mm")</dd>
+                    }
+                </dl>
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-body small">
+                <h2 class="h6 mb-3">배송지</h2>
+                @Model.Shipping.RecipientName · @Model.Shipping.Phone<br />
+                (@Model.Shipping.PostalCode) @Model.Shipping.Address1 @Model.Shipping.Address2
+                @if (Model.Shipping.Memo is not null)
+                {
+                    <br /><span class="text-muted">@Model.Shipping.Memo</span>
+                }
+            </div>
+        </div>
+
+        <div class="d-grid gap-2">
+            @if (Model.CanPay)
+            {
+                <a class="btn btn-dark" asp-action="Pay" asp-route-orderNumber="@Model.OrderNumber">결제하기</a>
+            }
+            @if (Model.CanCancel)
+            {
+                <form method="post" asp-action="Cancel" asp-route-orderNumber="@Model.OrderNumber"
+                      onsubmit="return confirm('주문을 취소할까요? 취소하면 되돌릴 수 없습니다.')" class="d-grid">
+                    <button type="submit" class="btn btn-outline-danger">주문 취소</button>
+                </form>
+            }
+        </div>
+    </div>
+</div>

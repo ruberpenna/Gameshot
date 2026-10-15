@@ -1,0 +1,134 @@
+@using GameShot.Web.Services
+@model CheckoutViewModel
+@{
+    ViewData["Title"] = "주문서";
+    var cart = Model.Cart;
+}
+
+<h1 class="h4 mb-4">주문서</h1>
+
+<form method="post" asp-action="Index" id="checkoutForm">
+    <input type="hidden" asp-for="Form.ExpectedTotal" />
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <section class="card mb-4">
+                <div class="card-body">
+                    <h2 class="h6 mb-3">배송지</h2>
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <label asp-for="Form.RecipientName" class="form-label"></label>
+                            <input asp-for="Form.RecipientName" class="form-control" autocomplete="name" />
+                            <span asp-validation-for="Form.RecipientName" class="text-danger small"></span>
+                        </div>
+                        <div class="col-sm-6">
+                            <label asp-for="Form.Phone" class="form-label"></label>
+                            <input asp-for="Form.Phone" class="form-control" type="tel" inputmode="tel" placeholder="010-1234-5678" autocomplete="tel" />
+                            <span asp-validation-for="Form.Phone" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="Form.PostalCode" class="form-label">주소</label>
+                            <div class="input-group mb-2" style="max-width: 18rem">
+                                <input asp-for="Form.PostalCode" class="form-control" placeholder="우편번호" readonly />
+                                <button type="button" class="btn btn-outline-dark" id="findAddress">주소 검색</button>
+                            </div>
+                            <span asp-validation-for="Form.PostalCode" class="text-danger small d-block"></span>
+                            <input asp-for="Form.Address1" class="form-control mb-2" placeholder="기본 주소" readonly />
+                            <span asp-validation-for="Form.Address1" class="text-danger small d-block"></span>
+                            <input asp-for="Form.Address2" class="form-control" placeholder="상세 주소 (동·호수 등)" autocomplete="address-line2" />
+                            <span asp-validation-for="Form.Address2" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="Form.Memo" class="form-label"></label>
+                            <input asp-for="Form.Memo" class="form-control" list="memoOptions" placeholder="예: 문 앞에 놓아 주세요" />
+                            <datalist id="memoOptions">
+                                <option value="문 앞에 놓아 주세요"></option>
+                                <option value="경비실에 맡겨 주세요"></option>
+                                <option value="배송 전에 연락 주세요"></option>
+                            </datalist>
+                            <span asp-validation-for="Form.Memo" class="text-danger small"></span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-body">
+                    <h2 class="h6 mb-3">주문 상품 @(cart.Lines.Count)개</h2>
+                    <ul class="list-unstyled mb-0">
+                        @foreach (var line in cart.Lines)
+                        {
+                            <li class="d-flex gap-3 py-2 border-bottom">
+                                <div class="cart-thumb flex-shrink-0">
+                                    @if (line.ThumbnailPath is not null)
+                                    {
+                                        <img src="@line.ThumbnailPath" alt="@line.ProductTitle" />
+                                    }
+                                </div>
+                                <div class="flex-grow-1 min-w-0">
+                                    <div class="fw-semibold">@line.ProductTitle</div>
+                                    <div class="small text-muted">@line.PlatformName · @line.Edition · @line.Language · @(line.Quantity)개</div>
+                                </div>
+                                <div class="text-nowrap fw-semibold">@line.LineTotal.ToString("N0")원</div>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </section>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card cart-summary">
+                <div class="card-body">
+                    <h2 class="h6 mb-3">결제 금액</h2>
+                    <dl class="row mb-0 small">
+                        <dt class="col-6 fw-normal">상품 금액</dt>
+                        <dd class="col-6 text-end">@cart.Subtotal.ToString("N0")원</dd>
+                        <dt class="col-6 fw-normal">배송비</dt>
+                        <dd class="col-6 text-end">@(cart.ShippingFee == 0 ? "무료" : cart.ShippingFee.ToString("N0") + "원")</dd>
+                    </dl>
+                    <hr />
+                    <div class="d-flex justify-content-between align-items-baseline">
+                        <span>총 결제 금액</span>
+                        <strong class="fs-4">@cart.Total.ToString("N0")원</strong>
+                    </div>
+
+                    <div class="mt-3 p-2 rounded bg-body-tertiary small">
+                        <strong>결제 수단:</strong> 가상 결제 (연습용)<br />
+                        실제 돈은 나가지 않습니다. 다음 화면에서 결제 성공/실패를 고를 수 있습니다.
+                    </div>
+
+                    <button type="submit" class="btn btn-dark w-100 mt-3" id="placeOrder">
+                        @cart.Total.ToString("N0")원 결제하기
+                    </button>
+                    <a class="btn btn-link w-100 btn-sm text-muted" asp-controller="Cart" asp-action="Index">장바구니로 돌아가기</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    @* 카카오(다음) 우편번호 서비스 *@
+    <script src="https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+    <script>
+        document.getElementById('findAddress').addEventListener('click', () => {
+            new daum.Postcode({
+                oncomplete: data => {
+                    document.getElementById('Form_PostalCode').value = data.zonecode;
+                    document.getElementById('Form_Address1').value = data.roadAddress || data.jibunAddress;
+                    document.getElementById('Form_Address2').focus();
+                }
+            }).open();
+        });
+
+        // 두 번 눌러 주문이 두 개 생기지 않게
+        document.getElementById('checkoutForm').addEventListener('submit', e => {
+            const form = e.target;
+            if (window.jQuery && $(form).valid && !$(form).valid()) return;
+            document.getElementById('placeOrder').disabled = true;
+        });
+    </script>
+}

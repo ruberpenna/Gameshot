@@ -107,9 +107,18 @@
                     <span>합계</span>
                     <strong class="fs-4">@Model.Total.ToString("N0")원</strong>
                 </div>
-                <button type="button" class="btn btn-dark w-100 mt-3" disabled>
-                    주문하기 (다음 단계)
-                </button>
+                @if (Model.CanCheckout)
+                {
+                    <a class="btn btn-dark w-100 mt-3" asp-controller="Checkout" asp-action="Index">주문하기</a>
+                    @if (User.Identity?.IsAuthenticated != true)
+                    {
+                        <p class="small text-muted mt-2 mb-0">주문은 로그인 후 할 수 있습니다. 담은 상품은 로그인해도 그대로 남습니다.</p>
+                    }
+                }
+                else
+                {
+                    <button type="button" class="btn btn-dark w-100 mt-3" disabled>주문하기</button>
+                }
                 @if (Model.HasProblems)
                 {
                     <p class="small text-danger mt-2 mb-0">주문할 수 없는 상품이 있습니다. 확인 후 정리해 주세요.</p>

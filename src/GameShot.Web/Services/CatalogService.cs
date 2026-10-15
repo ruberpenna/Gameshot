@@ -49,10 +49,8 @@ public class CatalogService(ApplicationDbContext db, TimeProvider clock)
 {
     public const int PageSize = 12;
 
-    private static readonly TimeZoneInfo Kst = TimeZoneInfo.FindSystemTimeZoneById("Asia/Seoul");
-
     /// <summary>한국 시간 기준 오늘 (예약판매 판단용)</summary>
-    public DateOnly Today => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(clock.GetUtcNow(), Kst).DateTime);
+    public DateOnly Today => KoreanTime.Today(clock);
 
     public async Task<PagedResult<ProductCard>> SearchAsync(ProductFilter filter, CancellationToken ct = default)
     {

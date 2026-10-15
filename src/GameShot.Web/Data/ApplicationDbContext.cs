@@ -1,5 +1,6 @@
 using GameShot.Web.Models;
 using GameShot.Web.Models.Catalog;
+using GameShot.Web.Models.Ordering;
 using GameShot.Web.Models.Shopping;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +17,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<ProductImage> ProductImages => Set<ProductImage>();
     public DbSet<Cart> Carts => Set<Cart>();
     public DbSet<CartItem> CartItems => Set<CartItem>();
+    public DbSet<Order> Orders => Set<Order>();
+    public DbSet<OrderItem> OrderItems => Set<OrderItem>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -89,6 +92,38 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             // 장바구니에 담긴 SKU는 지우지 말고 판매 중지(IsActive=false)로 내린다
             e.HasOne(i => i.ProductVariant).WithMany().OnDelete(DeleteBehavior.Restrict);
             e.ToTable(t => t.HasCheckConstraint("CK_CartItems_Quantity", "[Quantity] > 0"));
+        });
+
+        builder.Entity<Order>(e =>
+        {
+            e.Property(o => o.OrderNumber).HasMaxLength(30);
+            e.HasIndex(o => o.OrderNumber).IsUnique();
+            e.HasIndex(o => new { o.UserId, o.CreatedAt });
+            e.Property(o => o.PaymentMethod).HasMaxLength(30);
+            // 회원을 지워도 주문 기록은 남겨야 하므로 연쇄 삭제하지 않는다
+            e.HasOne(o => o.User).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.ComplexProperty(o => o.Shipping, s =>
+            {
+                s.Property(x => x.RecipientName).HasMaxLength(30);
+                s.Property(x => x.Phone).HasMaxLength(20);
+                s.Property(x => x.PostalCode).HasMaxLength(10);
+                s.Property(x => x.Address1).HasMaxLength(200);
+                s.Property(x => x.Address2).HasMaxLength(200);
+                s.Property(x => x.Memo).HasMaxLength(100);
+            });
+        });
+
+        builder.Entity<OrderItem>(e =>
+        {
+            e.Property(i => i.ProductTitle).HasMaxLength(200);
+            e.Property(i => i.ProductSlug).HasMaxLength(200);
+            e.Property(i => i.ThumbnailPath).HasMaxLength(300);
+            e.Property(i => i.PlatformName).HasMaxLength(50);
+            e.Property(i => i.Edition).HasMaxLength(100);
+            e.Property(i => i.Language).HasMaxLength(30);
+            e.HasOne(i => i.Order).WithMany(o => o.Items).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(i => i.ProductVariant).WithMany().OnDelete(DeleteBehavior.SetNull);
+            e.ToTable(t => t.HasCheckConstraint("CK_OrderItems_Quantity", "[Quantity] > 0"));
         });
     }
 }

@@ -24,6 +24,7 @@ builder.Services.AddScoped<CatalogService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<CartService>();
 builder.Services.AddScoped<CartContext>();
+builder.Services.AddScoped<OrderService>();
 
 var korean = new CultureInfo("ko-KR");
 CultureInfo.DefaultThreadCurrentCulture = korean;

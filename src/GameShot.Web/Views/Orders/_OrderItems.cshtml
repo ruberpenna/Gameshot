@@ -1,0 +1,37 @@
+@using GameShot.Web.Models.Ordering
+@model Order
+
+<ul class="list-unstyled mb-0">
+    @foreach (var item in Model.Items)
+    {
+        <li class="d-flex gap-3 py-2 border-bottom">
+            <div class="cart-thumb flex-shrink-0">
+                @if (item.ThumbnailPath is not null)
+                {
+                    <img src="@item.ThumbnailPath" alt="@item.ProductTitle" />
+                }
+            </div>
+            <div class="flex-grow-1 min-w-0">
+                @if (item.ProductSlug is not null)
+                {
+                    <a class="fw-semibold text-body text-decoration-none" asp-controller="Products" asp-action="Details" asp-route-slug="@item.ProductSlug">@item.ProductTitle</a>
+                }
+                else
+                {
+                    <span class="fw-semibold">@item.ProductTitle</span>
+                }
+                <div class="small text-muted">@item.PlatformName · @item.Edition · @item.Language</div>
+                <div class="small text-muted">@item.UnitPrice.ToString("N0")원 × @(item.Quantity)개</div>
+            </div>
+            <div class="text-nowrap fw-semibold">@item.LineTotal.ToString("N0")원</div>
+        </li>
+    }
+</ul>
+<dl class="row small mt-3 mb-0">
+    <dt class="col-6 fw-normal">상품 금액</dt>
+    <dd class="col-6 text-end">@Model.Subtotal.ToString("N0")원</dd>
+    <dt class="col-6 fw-normal">배송비</dt>
+    <dd class="col-6 text-end">@(Model.ShippingFee == 0 ? "무료" : Model.ShippingFee.ToString("N0") + "원")</dd>
+    <dt class="col-6">총 결제 금액</dt>
+    <dd class="col-6 text-end fw-bold">@Model.Total.ToString("N0")원</dd>
+</dl>

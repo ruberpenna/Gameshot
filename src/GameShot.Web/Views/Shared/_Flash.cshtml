@@ -3,7 +3,7 @@
 {
     <div class="alert alert-success alert-dismissible fade show d-flex align-items-center gap-3" role="alert">
         <span>@success</span>
-        @if (ViewContext.RouteData.Values["controller"] as string != "Cart")
+        @if (TempData["FlashCartLink"] is true)
         {
             <a class="alert-link" asp-controller="Cart" asp-action="Index">장바구니 보기</a>
         }

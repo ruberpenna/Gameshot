@@ -25,6 +25,8 @@ public class CartController(CartService carts, CartContext cartContext) : Contro
         }
 
         Flash(result);
+        // 상품 페이지로 돌아갈 때만 알림에 "장바구니 보기" 링크를 붙인다
+        TempData["FlashCartLink"] = result.Success && Url.IsLocalUrl(returnUrl);
         return Url.IsLocalUrl(returnUrl) ? LocalRedirect(returnUrl) : RedirectToAction(nameof(Index));
     }
 

@@ -1,0 +1,14 @@
+@using GameShot.Web.Models.Ordering
+@using GameShot.Web.Services
+@model OrderStatus
+@{
+    var css = Model switch
+    {
+        OrderStatus.PendingPayment => "text-bg-warning",
+        OrderStatus.Paid or OrderStatus.Preparing => "text-bg-primary",
+        OrderStatus.Shipped => "text-bg-info",
+        OrderStatus.Delivered => "text-bg-success",
+        _ => "text-bg-secondary",
+    };
+}
+<span class="badge @css">@OrderService.StatusText(Model)</span>

@@ -125,3 +125,8 @@ body {
     top: 1rem;
   }
 }
+
+.fake-pg .card-header {
+  background: #111827;
+  color: #fff;
+}

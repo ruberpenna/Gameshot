@@ -1,0 +1,38 @@
+@using GameShot.Web.Models.Ordering
+@model Order
+@{
+    ViewData["Title"] = "결제";
+}
+
+<div class="mx-auto" style="max-width: 28rem">
+    <div class="card fake-pg shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <strong>GameShot 가상 결제</strong>
+            <span class="badge text-bg-warning">테스트</span>
+        </div>
+        <div class="card-body">
+            <p class="small text-muted mb-1">주문번호 @Model.OrderNumber</p>
+            <p class="mb-1">
+                @Model.Items.First().ProductTitle
+                @if (Model.Items.Count > 1)
+                {
+                    <span>외 @(Model.Items.Count - 1)건</span>
+                }
+            </p>
+            <p class="display-6 fw-bold mb-4">@Model.Total.ToString("N0")원</p>
+
+            <div class="alert alert-secondary small">
+                실제 결제창(PG)을 붙이기 전까지 쓰는 연습용 화면입니다. 카드 정보는 받지 않으며 돈도 나가지 않습니다.
+                재고는 이미 잡아 두었고, <strong>결제 실패</strong>를 고르면 주문이 취소되고 재고가 돌아갑니다.
+            </div>
+
+            <form method="post" asp-action="Pay" asp-route-orderNumber="@Model.OrderNumber" class="d-grid gap-2">
+                <button type="submit" name="approve" value="true" class="btn btn-dark btn-lg">결제 승인 (성공)</button>
+                <button type="submit" name="approve" value="false" class="btn btn-outline-danger">결제 실패로 처리</button>
+            </form>
+        </div>
+    </div>
+    <p class="text-center small mt-3">
+        <a asp-action="Details" asp-route-orderNumber="@Model.OrderNumber" class="text-muted">나중에 결제하기 (주문 상세로)</a>
+    </p>
+</div>
