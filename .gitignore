@@ -486,3 +486,6 @@ gameshot-connection.txt
 
 # 관리자가 올린 상품 이미지 (DB와 함께 백업할 데이터)
 src/GameShot.Web/wwwroot/uploads/
+
+# 로컬 전용 메모 (개발용 계정 등)
+.local/
