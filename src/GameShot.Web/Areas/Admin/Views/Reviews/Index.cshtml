@@ -1,0 +1,65 @@
+@model PagedResult<AdminReviewRow>
+@{
+    ViewData["Title"] = "리뷰 관리";
+    var filter = ViewData["Hidden"] as bool?;
+}
+
+<h1 class="h4 mb-3">리뷰 관리</h1>
+
+<ul class="nav nav-pills platform-tabs mb-3">
+    <li class="nav-item"><a class="nav-link @(filter is null ? "active" : "")" asp-action="Index">전체</a></li>
+    <li class="nav-item"><a class="nav-link @(filter == false ? "active" : "")" asp-action="Index" asp-route-hidden="false">공개</a></li>
+    <li class="nav-item"><a class="nav-link @(filter == true ? "active" : "")" asp-action="Index" asp-route-hidden="true">숨김</a></li>
+</ul>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table admin-table mb-0 small">
+            <thead class="table-light">
+                <tr><th>작성일</th><th>상품</th><th>작성자</th><th>별점</th><th style="width: 40%">내용</th><th>상태</th><th></th></tr>
+            </thead>
+            <tbody>
+                @if (Model.Items.Count == 0)
+                {
+                    <tr><td colspan="7" class="text-muted p-3">리뷰가 없습니다.</td></tr>
+                }
+                @foreach (var r in Model.Items)
+                {
+                    <tr class="@(r.IsHidden ? "table-secondary" : "")">
+                        <td>@KoreanTime.FromUtc(r.CreatedAt).ToString("yyyy.MM.dd HH:mm")</td>
+                        <td><a asp-area="" asp-controller="Products" asp-action="Details" asp-route-slug="@r.ProductSlug" target="_blank">@r.ProductTitle</a></td>
+                        <td>@r.AuthorEmail</td>
+                        <td class="text-warning">@(new string('★', r.Rating))</td>
+                        <td style="white-space: normal; min-width: 16rem">@r.Content</td>
+                        <td>@(r.IsHidden ? "숨김" : "공개")</td>
+                        <td>
+                            <form method="post" asp-action="SetHidden" asp-route-id="@r.Id">
+                                <input type="hidden" name="hidden" value="@(r.IsHidden ? "false" : "true")" />
+                                <input type="hidden" name="filter" value="@filter" />
+                                <input type="hidden" name="page" value="@Model.Page" />
+                                <button type="submit" class="btn btn-sm @(r.IsHidden ? "btn-outline-success" : "btn-outline-danger")">
+                                    @(r.IsHidden ? "다시 보이기" : "숨기기")
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+<p class="small text-muted mt-2">총 @Model.TotalCount.ToString("N0")개 · 숨긴 리뷰는 상품 화면과 평균 별점에서 빠집니다 (작성자 본인에게는 보임).</p>
+
+@if (Model.TotalPages > 1)
+{
+    <nav aria-label="페이지">
+        <ul class="pagination pagination-sm">
+            @for (var p = 1; p <= Model.TotalPages; p++)
+            {
+                <li class="page-item @(p == Model.Page ? "active" : "")">
+                    <a class="page-link" asp-action="Index" asp-route-hidden="@filter" asp-route-page="@p">@p</a>
+                </li>
+            }
+        </ul>
+    </nav>
+}

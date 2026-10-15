@@ -1,0 +1,127 @@
+@using GameShot.Web.Services
+@model ProductDetailViewModel
+@{
+    var reviews = Model.Reviews;
+    var summary = reviews.Summary;
+    var slug = Model.Product.Slug;
+    var draft = TempData["ReviewDraft"] as string;
+    var mine = reviews.MyReview;
+
+    static string Stars(int rating) => new string('★', rating) + new string('☆', 5 - rating);
+
+    // 별점 라디오 Id 접두사 (작성 폼과 수정 폼이 한 화면에 같이 있을 수 있어서)
+    const string NewPrefix = "new";
+    const string EditPrefix = "edit";
+}
+
+<section id="reviews">
+    <h2 class="h5 mb-3">리뷰 <span class="text-muted fw-normal">@summary.Count.ToString("N0")</span></h2>
+
+    @if (summary.Count > 0)
+    {
+        <div class="row g-4 align-items-center mb-4">
+            <div class="col-sm-4 text-center">
+                <div class="display-5 fw-bold">@summary.Average.ToString("0.0")</div>
+                <div class="rating-stars fs-5">@Stars((int)Math.Round(summary.Average, MidpointRounding.AwayFromZero))</div>
+                <div class="small text-muted">리뷰 @summary.Count.ToString("N0")개</div>
+            </div>
+            <div class="col-sm-8">
+                @for (var star = 5; star >= 1; star--)
+                {
+                    <div class="d-flex align-items-center gap-2 small mb-1">
+                        <span class="text-nowrap" style="width: 2.5rem">@(star)점</span>
+                        <div class="rating-bar flex-grow-1"><div style="width: @(summary.Percent(star))%"></div></div>
+                        <span class="text-muted text-end" style="width: 2.5rem">@summary.CountByRating.GetValueOrDefault(star)</span>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    @switch (reviews.MyEligibility)
+    {
+        case ReviewEligibility.CanWrite:
+            <form method="post" asp-action="WriteReview" asp-route-slug="@slug" class="card mb-4">
+                <div class="card-body">
+                    <h3 class="h6">리뷰 쓰기</h3>
+                    <partial name="_ReviewFields" model="(0, draft, NewPrefix)" />
+                    <button type="submit" class="btn btn-dark mt-2">등록</button>
+                </div>
+            </form>
+            break;
+        case ReviewEligibility.NotSignedIn:
+            <p class="small text-muted">리뷰는 <a asp-area="Identity" asp-page="/Account/Login" asp-route-returnUrl="@($"/products/{slug}#reviews")">로그인</a> 후, 배송 완료된 주문의 상품만 쓸 수 있습니다.</p>
+            break;
+        case ReviewEligibility.NotPurchased:
+            <p class="small text-muted">이 상품을 구매해서 배송이 완료되면 리뷰를 쓸 수 있습니다.</p>
+            break;
+    }
+
+    @if (mine is not null)
+    {
+        <details class="card mb-4" open="@(draft is not null)">
+            <summary class="card-body py-2 small">내 리뷰 고치기 · 지우기</summary>
+            <div class="card-body pt-0">
+                <form method="post" asp-action="EditReview" asp-route-slug="@slug" asp-route-reviewId="@mine.Id">
+                    <partial name="_ReviewFields" model="(mine.Rating, draft ?? mine.Content, EditPrefix)" />
+                    <button type="submit" class="btn btn-dark btn-sm mt-2">저장</button>
+                </form>
+                <form method="post" asp-action="DeleteReview" asp-route-slug="@slug" asp-route-reviewId="@mine.Id" class="mt-2"
+                      onsubmit="return confirm('리뷰를 지울까요?')">
+                    <button type="submit" class="btn btn-link btn-sm text-danger p-0">리뷰 지우기</button>
+                </form>
+            </div>
+        </details>
+    }
+
+    @if (reviews.Page.TotalCount == 0)
+    {
+        <p class="text-muted py-3">아직 리뷰가 없습니다.</p>
+    }
+    else
+    {
+        <ul class="list-unstyled">
+            @foreach (var r in reviews.Page.Items)
+            {
+                <li class="border-bottom py-3">
+                    <div class="d-flex justify-content-between small">
+                        <span>
+                            <span class="rating-stars">@Stars(r.Rating)</span>
+                            <strong class="ms-1">@r.AuthorName</strong>
+                            @if (r.IsMine)
+                            {
+                                <span class="badge text-bg-light">내 리뷰</span>
+                            }
+                        </span>
+                        <span class="text-muted">
+                            @KoreanTime.FromUtc(r.CreatedAt).ToString("yyyy.MM.dd")
+                            @if (r.UpdatedAt is not null)
+                            {
+                                <span>(수정됨)</span>
+                            }
+                        </span>
+                    </div>
+                    @if (r.PurchasedOption is not null)
+                    {
+                        <div class="small text-muted">구매 옵션: @r.PurchasedOption</div>
+                    }
+                    <p class="mt-2 mb-0" style="white-space: pre-line">@r.Content</p>
+                </li>
+            }
+        </ul>
+
+        @if (reviews.Page.TotalPages > 1)
+        {
+            <nav aria-label="리뷰 페이지">
+                <ul class="pagination pagination-sm justify-content-center">
+                    @for (var pageNo = 1; pageNo <= reviews.Page.TotalPages; pageNo++)
+                    {
+                        <li class="page-item @(pageNo == reviews.Page.Page ? "active" : "")">
+                            <a class="page-link" href="@Url.Action("Details", new { slug, reviewPage = pageNo })#reviews">@pageNo</a>
+                        </li>
+                    }
+                </ul>
+            </nav>
+        }
+    }
+</section>

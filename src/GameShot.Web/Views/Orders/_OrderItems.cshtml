@@ -22,6 +22,11 @@
                 }
                 <div class="small text-muted">@item.PlatformName · @item.Edition · @item.Language</div>
                 <div class="small text-muted">@item.UnitPrice.ToString("N0")원 × @(item.Quantity)개</div>
+                @if (Model.Status == OrderStatus.Delivered && item.ProductSlug is not null
+                     && ViewContext.RouteData.Values["area"] is null or "")
+                {
+                    <a class="btn btn-sm btn-outline-dark mt-1" href="@Url.Action("Details", "Products", new { area = "", slug = item.ProductSlug })#reviews">리뷰 쓰기</a>
+                }
             </div>
             <div class="text-nowrap fw-semibold">@item.LineTotal.ToString("N0")원</div>
         </li>

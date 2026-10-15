@@ -66,6 +66,8 @@ builder.Services.AddScoped<MailQueue>();
 builder.Services.AddScoped<OrderMailer>();
 builder.Services.AddHostedService<MailWorker>();
 builder.Services.AddScoped<BenefitService>();
+builder.Services.AddScoped<WishlistService>();
+builder.Services.AddScoped<ReviewService>();
 builder.Services.AddScoped<BenefitAdminService>();
 builder.Services.AddScoped<OrderService>();
 builder.Services.AddScoped<ProductAdminService>();

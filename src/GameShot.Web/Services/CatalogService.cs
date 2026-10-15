@@ -1,4 +1,4 @@
-using GameShot.Web.Data;
+﻿using GameShot.Web.Data;
 using GameShot.Web.Models.Catalog;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,6 +19,8 @@ public record ProductFilter
     public string? Q { get; init; }
     public ProductSort Sort { get; init; } = ProductSort.Newest;
     public bool InStockOnly { get; init; }
+    /// <summary>이 상품들만 (찜 목록 등)</summary>
+    public IReadOnlyCollection<int>? Ids { get; init; }
     public int Page { get; init; } = 1;
 }
 
@@ -32,7 +34,9 @@ public record ProductCard(
     int? MinSalePrice,
     int? ListPriceAtMin,
     bool InStock,
-    IReadOnlyList<string> Platforms)
+    IReadOnlyList<string> Platforms,
+    double? AverageRating = null,
+    int ReviewCount = 0)
 {
     public int DiscountRate =>
         MinSalePrice is { } sale && ListPriceAtMin is { } list && list > 0 && sale < list
@@ -69,6 +73,10 @@ public class CatalogService(ApplicationDbContext db, TimeProvider clock)
             var q = filter.Q.Trim();
             products = products.Where(p => p.Title.Contains(q) || (p.Publisher != null && p.Publisher.Contains(q)));
         }
+        if (filter.Ids is { } onlyIds)
+        {
+            products = products.Where(p => onlyIds.Contains(p.Id));
+        }
         if (filter.InStockOnly)
         {
             products = products.Where(p => p.Variants.Any(v => v.IsActive && v.Stock > 0));
@@ -87,6 +95,8 @@ public class CatalogService(ApplicationDbContext db, TimeProvider clock)
                 .Where(v => v.IsActive && v.SalePrice == p.Variants.Where(x => x.IsActive).Min(x => x.SalePrice))
                 .Min(v => (int?)v.ListPrice),
             InStock = p.Variants.Any(v => v.IsActive && v.Stock > 0),
+            ReviewCount = db.Reviews.Count(r => r.ProductId == p.Id && !r.IsHidden),
+            AverageRating = db.Reviews.Where(r => r.ProductId == p.Id && !r.IsHidden).Average(r => (double?)r.Rating),
         });
 
         cards = filter.Sort switch
@@ -117,7 +127,7 @@ public class CatalogService(ApplicationDbContext db, TimeProvider clock)
             .Select(r => new ProductCard(
                 r.Id, r.Slug, r.Title, r.ThumbnailPath, r.ReleaseDate,
                 r.MinSalePrice, r.ListPriceAtMin, r.InStock,
-                platformsByProduct.GetValueOrDefault(r.Id) ?? []))
+                platformsByProduct.GetValueOrDefault(r.Id) ?? [], r.AverageRating, r.ReviewCount))
             .ToList();
 
         return new PagedResult<ProductCard>(items, page, PageSize, total);

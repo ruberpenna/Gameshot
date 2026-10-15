@@ -1,6 +1,7 @@
 using GameShot.Web.Models;
 using GameShot.Web.Models.Benefits;
 using GameShot.Web.Models.Catalog;
+using GameShot.Web.Models.Community;
 using GameShot.Web.Models.Mail;
 using GameShot.Web.Models.Ordering;
 using GameShot.Web.Models.Shopping;
@@ -25,6 +26,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<UserCoupon> UserCoupons => Set<UserCoupon>();
     public DbSet<PointTransaction> PointTransactions => Set<PointTransaction>();
     public DbSet<EmailMessage> EmailMessages => Set<EmailMessage>();
+    public DbSet<WishItem> WishItems => Set<WishItem>();
+    public DbSet<Review> Reviews => Set<Review>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -57,6 +60,25 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             e.HasIndex(u => new { u.UserId, u.UsedAt });
             e.HasOne(u => u.Coupon).WithMany(c => c.Issued).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(u => u.User).WithMany().OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<WishItem>(e =>
+        {
+            e.HasIndex(w => new { w.UserId, w.ProductId }).IsUnique();
+            e.HasIndex(w => new { w.UserId, w.CreatedAt });
+            e.HasOne(w => w.User).WithMany().OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(w => w.Product).WithMany().OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<Review>(e =>
+        {
+            e.Property(r => r.Content).HasMaxLength(1000);
+            // 상품당 회원 한 명이 리뷰 하나
+            e.HasIndex(r => new { r.ProductId, r.UserId }).IsUnique();
+            e.HasIndex(r => new { r.ProductId, r.IsHidden, r.CreatedAt });
+            e.HasOne(r => r.User).WithMany().OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(r => r.Product).WithMany().OnDelete(DeleteBehavior.Cascade);
+            e.ToTable(t => t.HasCheckConstraint("CK_Reviews_Rating", "[Rating] BETWEEN 1 AND 5"));
         });
 
         builder.Entity<EmailMessage>(e =>

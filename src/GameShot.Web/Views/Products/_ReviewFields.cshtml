@@ -1,0 +1,15 @@
+@using GameShot.Web.Services
+@* 별점(라디오) + 내용. Id가 겹치지 않게 접두사를 받는다 *@
+@model (int Rating, string? Content, string Prefix)
+
+<div class="star-input mb-2" role="radiogroup" aria-label="별점">
+    @for (var star = 5; star >= 1; star--)
+    {
+        var id = $"{Model.Prefix}-star-{star}";
+        <input type="radio" name="rating" id="@id" value="@star" checked="@(star == Model.Rating)" required />
+        <label for="@id" title="@(star)점">★</label>
+    }
+</div>
+<textarea name="content" class="form-control" rows="4" required
+          minlength="@ReviewService.MinLength" maxlength="@ReviewService.MaxLength"
+          placeholder="게임은 어땠나요? (@(ReviewService.MinLength)자 이상)">@Model.Content</textarea>

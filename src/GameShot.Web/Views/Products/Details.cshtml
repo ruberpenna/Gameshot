@@ -3,6 +3,13 @@
 @{
     var p = Model.Product;
     ViewData["Title"] = p.Title;
+
+    // 별점을 ★★★★☆ 형태로 (반올림)
+    static string Stars(double rating)
+    {
+        var full = (int)Math.Round(rating, MidpointRounding.AwayFromZero);
+        return new string('★', full) + new string('☆', 5 - full);
+    }
 }
 
 <nav aria-label="breadcrumb">
@@ -28,7 +35,18 @@
         {
             <span class="badge text-bg-primary mb-2">예약판매 · @p.ReleaseDate?.ToString("yyyy.MM.dd") 발매</span>
         }
-        <h1 class="h3">@p.Title</h1>
+        <div class="d-flex justify-content-between align-items-start gap-2">
+            <h1 class="h3">@p.Title</h1>
+            <partial name="_WishButton" model="(p.Id, Model.IsWished, false)" />
+        </div>
+        @if (Model.Reviews.Summary.Count > 0)
+        {
+            <a href="#reviews" class="small text-body text-decoration-none d-inline-block mb-2">
+                <span class="rating-stars">@Stars(Model.Reviews.Summary.Average)</span>
+                @Model.Reviews.Summary.Average.ToString("0.0")
+                <span class="text-muted">리뷰 @Model.Reviews.Summary.Count.ToString("N0")개</span>
+            </a>
+        }
         @if (!string.IsNullOrEmpty(p.Summary))
         {
             <p class="text-muted">@p.Summary</p>
@@ -132,3 +150,6 @@
         }
     </div>
 }
+
+<hr class="my-5" />
+<partial name="_Reviews" model="Model" />

@@ -23,6 +23,7 @@
                 <li class="nav-item"><a class="nav-link @Active("Products")" asp-area="Admin" asp-controller="Products" asp-action="Index">상품</a></li>
                 <li class="nav-item"><a class="nav-link @Active("Coupons")" asp-area="Admin" asp-controller="Coupons" asp-action="Index">쿠폰</a></li>
                 <li class="nav-item"><a class="nav-link @Active("Members")" asp-area="Admin" asp-controller="Members" asp-action="Index">회원</a></li>
+                <li class="nav-item"><a class="nav-link @Active("Reviews")" asp-area="Admin" asp-controller="Reviews" asp-action="Index">리뷰</a></li>
             </ul>
             <span class="navbar-text small me-3 d-none d-md-inline">@User.Identity?.Name</span>
             <a class="btn btn-sm btn-outline-light" asp-area="" asp-controller="Home" asp-action="Index">쇼핑몰로</a>

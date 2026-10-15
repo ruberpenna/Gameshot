@@ -1,0 +1,32 @@
+@* 찜 하트. 스크립트가 있으면 페이지 이동 없이 바뀌고(site.js), 없으면 폼 제출로 동작한다 *@
+@model (int ProductId, bool IsWished, bool Overlay)
+@{
+    var signedIn = User.Identity?.IsAuthenticated == true;
+    var css = Model.Overlay ? "wish-btn wish-btn-overlay" : "wish-btn btn btn-outline-secondary";
+}
+@if (signedIn)
+{
+    <form method="post" asp-area="" asp-controller="Wishlist" asp-action="Toggle" asp-route-productId="@Model.ProductId"
+          class="wish-form @(Model.Overlay ? "wish-form-overlay" : "d-inline")">
+        <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
+        <button type="submit" class="@css @(Model.IsWished ? "is-wished" : "")" aria-pressed="@(Model.IsWished ? "true" : "false")"
+                aria-label="@(Model.IsWished ? "찜 해제" : "찜하기")" title="@(Model.IsWished ? "찜 해제" : "찜하기")">
+            <span class="wish-icon" aria-hidden="true">@(Model.IsWished ? "♥" : "♡")</span>
+            @if (!Model.Overlay)
+            {
+                <span class="wish-label">찜</span>
+            }
+        </button>
+    </form>
+}
+else
+{
+    <a class="@css @(Model.Overlay ? "wish-form-overlay" : "")" aria-label="로그인하고 찜하기" title="로그인하고 찜하기"
+       asp-area="Identity" asp-page="/Account/Login" asp-route-returnUrl="@(Context.Request.Path + Context.Request.QueryString)">
+        <span class="wish-icon" aria-hidden="true">♡</span>
+        @if (!Model.Overlay)
+        {
+            <span class="wish-label">찜</span>
+        }
+    </a>
+}

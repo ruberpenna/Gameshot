@@ -144,3 +144,89 @@ body {
   max-width: 26rem;
   padding-top: 1rem;
 }
+
+/* 찜 하트 */
+.wish-form-overlay {
+  position: absolute;
+  top: .5rem;
+  right: .5rem;
+  z-index: 2;
+}
+
+.wish-btn-overlay {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(255, 255, 255, .9);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  color: #6b7280;
+  text-decoration: none;
+  line-height: 1;
+}
+
+.wish-btn-overlay:hover {
+  color: #dc3545;
+}
+
+.wish-btn.is-wished,
+.wish-btn.is-wished .wish-icon {
+  color: #dc3545;
+}
+
+.btn.wish-btn.is-wished {
+  border-color: #dc3545;
+}
+
+/* 리뷰 */
+.rating-stars {
+  color: #f59e0b;
+  letter-spacing: 1px;
+}
+
+.rating-bar {
+  height: .5rem;
+  background: #e5e7eb;
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+.rating-bar > div {
+  height: 100%;
+  background: #f59e0b;
+}
+
+.star-input {
+  display: inline-flex;
+  flex-direction: row-reverse;
+  gap: .15rem;
+}
+
+.star-input input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.star-input label {
+  font-size: 1.75rem;
+  color: #d1d5db;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.star-input input:checked ~ label,
+.star-input label:hover,
+.star-input label:hover ~ label {
+  color: #f59e0b;
+}
+
+.star-input input:focus-visible + label {
+  outline: 2px solid #258cfb;
+  border-radius: .25rem;
+}
