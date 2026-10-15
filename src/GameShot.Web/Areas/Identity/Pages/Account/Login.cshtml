@@ -28,7 +28,7 @@
     </form>
     <div class="text-center small mt-3 vstack gap-1">
         <span>아직 회원이 아니신가요? <a asp-page="./Register" asp-route-returnUrl="@Model.ReturnUrl">회원가입</a></span>
-        <span class="text-muted">비밀번호를 잊었다면 관리자에게 문의하세요. (메일 발송 준비 중)</span>
+        <a asp-page="./ForgotPassword" class="text-muted">비밀번호를 잊으셨나요?</a>
     </div>
 </div>
 

@@ -1,6 +1,7 @@
 using GameShot.Web.Models;
 using GameShot.Web.Models.Benefits;
 using GameShot.Web.Models.Catalog;
+using GameShot.Web.Models.Mail;
 using GameShot.Web.Models.Ordering;
 using GameShot.Web.Models.Shopping;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -23,6 +24,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Coupon> Coupons => Set<Coupon>();
     public DbSet<UserCoupon> UserCoupons => Set<UserCoupon>();
     public DbSet<PointTransaction> PointTransactions => Set<PointTransaction>();
+    public DbSet<EmailMessage> EmailMessages => Set<EmailMessage>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -55,6 +57,18 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             e.HasIndex(u => new { u.UserId, u.UsedAt });
             e.HasOne(u => u.Coupon).WithMany(c => c.Issued).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(u => u.User).WithMany().OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<EmailMessage>(e =>
+        {
+            e.Property(m => m.ToAddress).HasMaxLength(256);
+            e.Property(m => m.Kind).HasMaxLength(30);
+            e.Property(m => m.Subject).HasMaxLength(200);
+            e.Property(m => m.LastError).HasMaxLength(500);
+            // 발송 작업이 보낼 메일을 찾는 조회
+            e.HasIndex(m => new { m.SentAt, m.NextAttemptAt });
+            // 연타 방지 조회
+            e.HasIndex(m => new { m.ToAddress, m.Kind, m.CreatedAt });
         });
 
         builder.Entity<PointTransaction>(e =>

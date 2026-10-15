@@ -489,3 +489,6 @@ src/GameShot.Web/wwwroot/uploads/
 
 # 로컬 전용 메모 (개발용 계정 등)
 .local/
+
+# 개발용으로 파일에 남긴 메일
+src/GameShot.Web/App_Data/

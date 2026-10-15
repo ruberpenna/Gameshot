@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using GameShot.Web.Models;
 using GameShot.Web.Services.Identity;
+using GameShot.Web.Services.Mail;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -17,7 +18,31 @@ public class IndexModel(
     MemberService members) : PageModel
 {
     public string Email { get; private set; } = "";
+    public bool EmailConfirmed { get; private set; }
     public DateTime JoinedAt { get; private set; }
+
+    /// <summary>인증 메일 다시 받기</summary>
+    public async Task<IActionResult> OnPostSendConfirmationAsync([FromServices] AccountMailer mailer, CancellationToken ct)
+    {
+        var user = await users.GetUserAsync(User);
+        if (user is null)
+        {
+            return Challenge();
+        }
+        if (user.EmailConfirmed)
+        {
+            TempData["FlashSuccess"] = "이미 인증된 이메일입니다.";
+        }
+        else if (await mailer.SendEmailConfirmationAsync(user, ct))
+        {
+            TempData["FlashSuccess"] = $"{user.Email}로 인증 메일을 보냈습니다.";
+        }
+        else
+        {
+            TempData["FlashError"] = "방금 인증 메일을 보냈습니다. 잠시 후 다시 시도하세요.";
+        }
+        return RedirectToPage();
+    }
 
     [BindProperty]
     public InputModel Input { get; set; } = new();
@@ -93,6 +118,7 @@ public class IndexModel(
     private void Load(ApplicationUser user)
     {
         Email = user.Email ?? "";
+        EmailConfirmed = user.EmailConfirmed;
         JoinedAt = user.CreatedAt;
     }
 }

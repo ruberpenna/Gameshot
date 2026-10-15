@@ -9,17 +9,12 @@ public static class UnsupportedIdentityPages
 {
     public static readonly string[] Paths =
     [
-        "/Identity/Account/ConfirmEmail",
         "/Identity/Account/ConfirmEmailChange",
         "/Identity/Account/ExternalLogin",
-        "/Identity/Account/ForgotPassword",
-        "/Identity/Account/ForgotPasswordConfirmation",
         "/Identity/Account/LoginWith2fa",
         "/Identity/Account/LoginWithRecoveryCode",
         "/Identity/Account/RegisterConfirmation",
         "/Identity/Account/ResendEmailConfirmation",
-        "/Identity/Account/ResetPassword",
-        "/Identity/Account/ResetPasswordConfirmation",
         "/Identity/Account/Manage/DeletePersonalData",
         "/Identity/Account/Manage/Disable2fa",
         "/Identity/Account/Manage/DownloadPersonalData",

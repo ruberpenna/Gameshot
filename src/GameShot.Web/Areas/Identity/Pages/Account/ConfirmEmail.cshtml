@@ -1,0 +1,20 @@
+@page
+@model GameShot.Web.Areas.Identity.Pages.Account.ConfirmEmailModel
+@{
+    ViewData["Title"] = Model.Succeeded ? "이메일 인증 완료" : "이메일 인증 실패";
+}
+
+<div class="text-center py-5">
+    @if (Model.Succeeded)
+    {
+        <h1 class="h4">이메일 인증을 마쳤습니다</h1>
+        <p class="text-muted">이제 주문할 수 있습니다.</p>
+        <a class="btn btn-dark" asp-area="" asp-controller="Products" asp-action="Index">쇼핑하러 가기</a>
+    }
+    else
+    {
+        <h1 class="h4">인증 링크가 올바르지 않거나 만료되었습니다</h1>
+        <p class="text-muted">로그인한 뒤 내 정보에서 인증 메일을 다시 받으세요.</p>
+        <a class="btn btn-dark" asp-page="./Manage/Index">내 정보</a>
+    }
+</div>

@@ -20,6 +20,10 @@ public class CheckoutController(
     {
         // 로그인 직후라면 비회원 장바구니를 여기서 합친다
         await cartContext.GetOwnerAsync(ct);
+        if (await RequireConfirmedEmail() is { } redirect)
+        {
+            return redirect;
+        }
         var quote = await orders.QuoteAsync(UserId, null, 0, ct);
         if (!quote.Cart.CanCheckout)
         {
@@ -56,6 +60,10 @@ public class CheckoutController(
     [HttpPost("")]
     public async Task<IActionResult> Index([Bind(Prefix = "Form")] CheckoutForm form, CancellationToken ct)
     {
+        if (await RequireConfirmedEmail() is { } redirect)
+        {
+            return redirect;
+        }
         if (!ModelState.IsValid)
         {
             return await Redisplay(form, ct);
@@ -74,6 +82,18 @@ public class CheckoutController(
     }
 
     private string UserId => users.GetUserId(User)!;
+
+    /// <summary>이메일 인증 전에는 주문할 수 없다 (로그인·장바구니는 된다)</summary>
+    private async Task<IActionResult?> RequireConfirmedEmail()
+    {
+        var user = await users.GetUserAsync(User);
+        if (user is { EmailConfirmed: true })
+        {
+            return null;
+        }
+        TempData["FlashError"] = "이메일 인증을 마쳐야 주문할 수 있습니다. 가입할 때 보낸 메일을 확인하거나 아래에서 다시 받으세요.";
+        return Redirect("/Identity/Account/Manage");
+    }
 
     private async Task<IActionResult> Redisplay(CheckoutForm form, CancellationToken ct)
     {

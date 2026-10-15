@@ -36,7 +36,7 @@ public sealed class BenefitTests : IAsyncLifetime
         await _db.Database.EnsureCreatedAsync();
         _carts = new CartService(_db, _clock);
         _benefits = new BenefitService(_db, _clock);
-        _orders = new OrderService(_db, _carts, _benefits, _clock, Options.Create(new ShopOptions()));
+        _orders = TestServices.Orders(_db, _clock, carts: _carts, benefits: _benefits);
 
         var ps5 = new Platform { Code = "ps5", Name = "PlayStation 5" };
         _game = new ProductVariant { Platform = ps5, Sku = "GAME", ListPrice = 40000, SalePrice = 40000, Stock = 10 };

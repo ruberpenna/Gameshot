@@ -39,7 +39,7 @@ public sealed class OrderServiceTests : IAsyncLifetime
         _db = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlite(_connection).Options);
         await _db.Database.EnsureCreatedAsync();
         _carts = new CartService(_db, _clock);
-        _orders = new OrderService(_db, _carts, new BenefitService(_db, _clock), _clock, Options.Create(_options));
+        _orders = TestServices.Orders(_db, _clock, _options, carts: _carts);
 
         var ps5 = new Platform { Code = "ps5", Name = "PlayStation 5" };
         _game = new ProductVariant { Platform = ps5, Sku = "GAME", ListPrice = 45000, SalePrice = 40000, Stock = 5, Edition = "디럭스" };

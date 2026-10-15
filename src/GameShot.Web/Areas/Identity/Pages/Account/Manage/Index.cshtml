@@ -6,11 +6,31 @@
 
 <partial name="_ManageNav" />
 
+@if (!Model.EmailConfirmed)
+{
+    <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2" style="max-width: 32rem">
+        <span class="flex-grow-1">이메일 인증을 마쳐야 주문할 수 있습니다.</span>
+        <form method="post" asp-page-handler="SendConfirmation">
+            <button type="submit" class="btn btn-sm btn-dark">인증 메일 다시 받기</button>
+        </form>
+    </div>
+}
+
 <form id="profile-form" method="post" class="card" style="max-width: 32rem">
     <div class="card-body vstack gap-3">
         <div asp-validation-summary="ModelOnly" class="alert alert-danger mb-0" role="alert"></div>
         <div>
-            <label class="form-label" for="email">이메일 (아이디)</label>
+            <label class="form-label" for="email">
+                이메일 (아이디)
+                @if (Model.EmailConfirmed)
+                {
+                    <span class="badge text-bg-success ms-1">인증됨</span>
+                }
+                else
+                {
+                    <span class="badge text-bg-warning ms-1">미인증</span>
+                }
+            </label>
             <input id="email" class="form-control" value="@Model.Email" disabled />
             <div class="form-text">
                 가입일 @GameShot.Web.Services.KoreanTime.FromUtc(Model.JoinedAt).ToString("yyyy.MM.dd") ·

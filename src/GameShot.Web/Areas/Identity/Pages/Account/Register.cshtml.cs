@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using GameShot.Web.Models;
 using GameShot.Web.Services.Identity;
+using GameShot.Web.Services.Mail;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -13,6 +14,7 @@ public class RegisterModel(
     UserManager<ApplicationUser> users,
     SignInManager<ApplicationUser> signIn,
     MemberService members,
+    AccountMailer mailer,
     ILogger<RegisterModel> logger) : AccountPageModel
 {
     [BindProperty]
@@ -91,8 +93,9 @@ public class RegisterModel(
         }
 
         logger.LogInformation("회원가입: {Email}", email);
+        await mailer.SendEmailConfirmationAsync(user, ct);
         await signIn.SignInAsync(user, isPersistent: false);
-        TempData["FlashSuccess"] = $"{user.Nickname}님, 가입을 환영합니다!";
+        TempData["FlashSuccess"] = $"{user.Nickname}님, 가입을 환영합니다! {email}로 보낸 인증 메일을 확인하면 주문할 수 있습니다.";
         return RedirectToReturnUrl();
     }
 }

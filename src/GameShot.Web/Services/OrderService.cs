@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using GameShot.Web.Data;
 using GameShot.Web.Models.Benefits;
 using GameShot.Web.Models.Ordering;
+using GameShot.Web.Services.Mail;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -60,9 +61,13 @@ public class OrderService(
     ApplicationDbContext db,
     CartService carts,
     BenefitService benefits,
+    OrderMailer mailer,
     TimeProvider clock,
     IOptions<ShopOptions> options)
 {
+    private Task<int> OrderIdOf(string orderNumber, CancellationToken ct) =>
+        db.Orders.Where(o => o.OrderNumber == orderNumber).Select(o => o.Id).SingleAsync(ct);
+
     public const string ReasonCustomer = "고객 취소";
     public const string ReasonPaymentFailed = "결제 실패";
     public const string ReasonPaymentTimeout = "결제 시간 초과";
@@ -262,6 +267,7 @@ public class OrderService(
                 .SetProperty(o => o.PaidAt, now), ct);
         if (updated == 1)
         {
+            await mailer.QueueAsync(await OrderIdOf(orderNumber, ct), OrderMailKind.Paid, ct: ct);
             return OrderResult.Ok("결제가 완료되었습니다.", orderNumber);
         }
 
@@ -397,6 +403,10 @@ public class OrderService(
                 .SetProperty(o => o.Courier, courier)
                 .SetProperty(o => o.TrackingNumber, trackingNumber)
                 .SetProperty(o => o.ShippedAt, now), ct);
+        if (updated == 1)
+        {
+            await mailer.QueueAsync(await OrderIdOf(orderNumber, ct), OrderMailKind.Shipped, ct: ct);
+        }
         return updated == 1
             ? OrderResult.Ok("발송 처리했습니다.", orderNumber)
             : OrderResult.Fail("배송 준비중인 주문만 발송 처리할 수 있습니다.");
@@ -539,6 +549,9 @@ public class OrderService(
                 await benefits.ChangePointsAsync(paidWith.UserId, paidWith.PointsUsed, PointType.Refund,
                     $"주문 {orderNumber} 취소로 반환", orderId, ct);
             }
+
+            // 취소 안내 메일도 같은 트랜잭션으로 아웃박스에 넣는다
+            await mailer.QueueAsync(orderId.Value, OrderMailKind.Cancelled, ct: ct);
 
             await tx.CommitAsync(ct);
             return OrderResult.Ok(message, orderNumber);

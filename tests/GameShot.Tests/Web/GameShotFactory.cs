@@ -1,6 +1,8 @@
 using System.Net;
 using System.Text.RegularExpressions;
 using GameShot.Web.Data;
+using GameShot.Web.Models.Mail;
+using GameShot.Web.Services.Mail;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
@@ -32,12 +34,43 @@ public sealed class GameShotFactory : WebApplicationFactory<Program>
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:DefaultConnection", "Data Source=not-used");
         builder.UseSetting("Shop:MaintenanceInterval", "01:00:00");
+        // 메일은 아웃박스(DB)에 쌓인 것만 확인하고 실제로는 보내지 않는다
+        builder.UseSetting("Mail:WorkerInterval", "01:00:00");
+        builder.UseSetting("Mail:PublicBaseUrl", "http://localhost");
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<DbContextOptions<ApplicationDbContext>>();
             services.RemoveAll<IDbContextOptionsConfiguration<ApplicationDbContext>>();
             services.AddDbContext<ApplicationDbContext>(o => o.UseSqlite(_connection));
+            services.RemoveAll<IMailTransport>();
+            services.AddSingleton<IMailTransport>(new FakeMailTransport());
         });
+    }
+
+    /// <summary>이 주소로 마지막에 쌓인 메일</summary>
+    public async Task<EmailMessage?> LastMailToAsync(string to, string kind)
+    {
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        return await db.EmailMessages.AsNoTracking()
+            .Where(m => m.ToAddress == to && m.Kind == kind)
+            .OrderByDescending(m => m.Id)
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task<int> MailCountAsync(string to)
+    {
+        using var scope = Services.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().EmailMessages.CountAsync(m => m.ToAddress == to);
+    }
+
+    /// <summary>메일 본문의 버튼 링크를 경로+쿼리로 (테스트 서버 주소와 상관없이 따라가도록)</summary>
+    public static string LinkIn(EmailMessage mail)
+    {
+        var match = Regex.Match(mail.HtmlBody, "href=\"(http://localhost[^\"]+)\"");
+        Assert.True(match.Success, "메일에 링크가 없습니다.");
+        var uri = new Uri(WebUtility.HtmlDecode(match.Groups[1].Value));
+        return uri.PathAndQuery;
     }
 
     /// <summary>리다이렉트를 따라가지 않는 클라이언트 (Location 헤더를 직접 확인할 때)</summary>

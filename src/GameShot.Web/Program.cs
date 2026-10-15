@@ -6,6 +6,8 @@ using GameShot.Web.Data;
 using GameShot.Web.Models;
 using GameShot.Web.Services;
 using GameShot.Web.Services.Identity;
+using GameShot.Web.Services.Mail;
+using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -40,6 +42,9 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
     .AddErrorDescriber<KoreanIdentityErrorDescriber>()
     .AddClaimsPrincipalFactory<GameShotClaimsFactory>();
 builder.Services.AddScoped<MemberService>();
+// 비밀번호 재설정·이메일 인증 링크 유효 시간
+builder.Services.Configure<DataProtectionTokenProviderOptions>(o => o.TokenLifespan = TimeSpan.FromHours(1));
+builder.Services.AddScoped<AccountMailer>();
 builder.Services.AddControllersWithViews();
 // 한글을 &#xAC00; 같은 엔티티로 바꾸지 않고 그대로 출력 (HTML 특수문자는 계속 이스케이프된다)
 builder.Services.Configure<WebEncoderOptions>(o => o.TextEncoderSettings = new TextEncoderSettings(UnicodeRanges.All));
@@ -51,6 +56,15 @@ builder.Services.AddScoped<CatalogService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<CartService>();
 builder.Services.AddScoped<CartContext>();
+builder.Services.Configure<MailOptions>(builder.Configuration.GetSection(MailOptions.Section));
+// SMTP 설정이 있으면 실제로 보내고, 없으면 App_Data/mail에 .eml 파일로 남긴다
+builder.Services.AddSingleton<IMailTransport>(sp =>
+    sp.GetRequiredService<IOptions<MailOptions>>().Value.UsesSmtp
+        ? ActivatorUtilities.CreateInstance<SmtpMailTransport>(sp)
+        : ActivatorUtilities.CreateInstance<PickupDirectoryMailTransport>(sp));
+builder.Services.AddScoped<MailQueue>();
+builder.Services.AddScoped<OrderMailer>();
+builder.Services.AddHostedService<MailWorker>();
 builder.Services.AddScoped<BenefitService>();
 builder.Services.AddScoped<BenefitAdminService>();
 builder.Services.AddScoped<OrderService>();

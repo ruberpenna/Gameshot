@@ -40,6 +40,23 @@ dotnet user-secrets set "Admin:Emails:0" "me@example.com" --project src/GameShot
 
 운영에서는 환경 변수 `Admin__Emails__0`을 쓴다. 업로드한 상품 이미지는 `wwwroot/uploads/`에 저장되며 git에 넣지 않는다(DB와 함께 백업).
 
+## 메일
+
+비밀번호 찾기, 가입 인증, 주문(결제 완료·발송·취소) 메일은 `EmailMessages` 테이블(아웃박스)에 쌓이고,
+백그라운드 작업이 10초마다 보낸다. 실패하면 1·4·9·16분 뒤 다시 시도하고 5번 실패하면 포기한다.
+
+SMTP 설정이 없으면 실제로 보내지 않고 `src/GameShot.Web/App_Data/mail/`에 .eml 파일로 남긴다.
+네이버 SMTP를 쓰려면 user-secrets(운영은 환경 변수 `Mail__...`)에 넣는다.
+
+```
+dotnet user-secrets set "Mail:SmtpHost" "smtp.naver.com" --project src/GameShot.Web
+dotnet user-secrets set "Mail:SmtpUserName" "네이버아이디" --project src/GameShot.Web
+dotnet user-secrets set "Mail:SmtpPassword" "비밀번호 또는 앱 비밀번호" --project src/GameShot.Web
+dotnet user-secrets set "Mail:FromAddress" "네이버아이디@naver.com" --project src/GameShot.Web
+```
+
+메일 속 링크의 주소는 `Mail:PublicBaseUrl`(기본 http://localhost:5120)이다. 배포하면 실제 주소로 바꾼다.
+
 ## 테스트
 
 ```

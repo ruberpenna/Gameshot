@@ -133,7 +133,7 @@ public sealed class AccountPagesTests(GameShotFactory factory) : IClassFixture<G
     }
 
     [Theory]
-    [InlineData("/Identity/Account/ForgotPassword")]
+    [InlineData("/Identity/Account/LoginWith2fa")]
     [InlineData("/Identity/Account/Manage/DeletePersonalData")]
     [InlineData("/Identity/Account/Manage/Email")]
     [InlineData("/identity/account/manage/twofactorauthentication")]
