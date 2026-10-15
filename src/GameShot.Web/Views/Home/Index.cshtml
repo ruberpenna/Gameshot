@@ -1,29 +1,137 @@
+@using GameShot.Web.Services
 @model HomeViewModel
 @{
     ViewData["Title"] = "홈";
+    var featured = Model.Featured;
+    var featuredIsPreorder = featured?.ReleaseDate is { } d && d > Model.Today;
+
+    (string Code, string Name, string Sub, string Color, string Icon)[] platforms =
+    [
+        ("ps5", "PlayStation 5", "PS5 타이틀", "var(--pf-ps)", "bi-playstation"),
+        ("switch2", "Nintendo Switch 2", "신작 라인업", "var(--pf-nin)", "bi-nintendo-switch"),
+        ("ps4", "PlayStation 4", "합리적인 가격", "var(--pf-ps)", "bi-playstation"),
+        ("xbox", "Xbox Series X|S", "Xbox 타이틀", "var(--pf-xbox)", "bi-xbox"),
+    ];
 }
 
-<section class="hero rounded-3 p-4 p-md-5 mb-4">
-    <h1 class="h2 fw-bold mb-2">콘솔 게임은 GameShot</h1>
-    <p class="mb-3">PS5 · Switch 2 · Xbox 신작과 예약판매를 한곳에서.</p>
-    <a class="btn btn-light" asp-controller="Products" asp-action="Index">전체 상품 보기</a>
-</section>
-
-<div class="d-flex justify-content-between align-items-end mb-3">
-    <h2 class="h5 mb-0">신상품</h2>
-    <a class="small" asp-controller="Products" asp-action="Index">더보기</a>
-</div>
-
-@if (Model.NewArrivals.Count == 0)
-{
-    <p class="text-muted">등록된 상품이 없습니다.</p>
-}
-else
-{
-    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3">
-        @foreach (var card in Model.NewArrivals)
+<section class="gs-hero">
+    <div class="row align-items-center g-4">
+        <div class="col-md-7">
+            @if (featured is not null)
+            {
+                <span class="gs-hero-eyebrow">
+                    @if (featuredIsPreorder)
+                    {
+                        <i class="bi bi-calendar-event"></i><span>@featured.ReleaseDate?.ToString("M월 d일") 발매 · 예약판매 중</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-stars"></i><span>지금 주목할 게임</span>
+                    }
+                </span>
+                <h1>@featured.Title</h1>
+                <p class="mb-3">@string.Join(" · ", featured.Platforms)</p>
+                <div class="d-flex align-items-baseline gap-2 mb-4">
+                    @if (featured.DiscountRate > 0)
+                    {
+                        <span class="badge text-bg-danger fs-6">@featured.DiscountRate%</span>
+                    }
+                    <span class="gs-hero-price">@featured.MinSalePrice?.ToString("N0")원~</span>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-light btn-lg" asp-controller="Products" asp-action="Details" asp-route-slug="@featured.Slug">
+                        @(featuredIsPreorder ? "예약 구매하기" : "자세히 보기")
+                    </a>
+                    <a class="btn btn-outline-light btn-lg" asp-controller="Products" asp-action="Index">전체 상품</a>
+                </div>
+            }
+            else
+            {
+                <span class="gs-hero-eyebrow"><i class="bi bi-controller"></i><span>콘솔 게임 전문</span></span>
+                <h1>PS5 · Switch 2 · Xbox<br />신작과 예약판매를 한곳에서</h1>
+                <a class="btn btn-light btn-lg mt-3" asp-controller="Products" asp-action="Index">상품 보러 가기</a>
+            }
+        </div>
+        @if (featured?.ThumbnailPath is not null)
         {
-            <partial name="_ProductCard" model="new ProductCardModel(card, Model.Today, Model.WishedIds.Contains(card.Id))" />
+            <div class="col-md-5 text-center d-none d-md-block">
+                <a asp-controller="Products" asp-action="Details" asp-route-slug="@featured.Slug">
+                    <img class="gs-hero-cover" src="@featured.ThumbnailPath" alt="@featured.Title" />
+                </a>
+            </div>
         }
     </div>
+</section>
+
+<section class="gs-section" aria-label="플랫폼">
+    <div class="row row-cols-2 row-cols-lg-4 g-3">
+        @foreach (var p in platforms)
+        {
+            <div class="col">
+                <a class="gs-platform-tile" style="--tile: @p.Color" asp-controller="Products" asp-action="Index" asp-route-Platform="@p.Code">
+                    <i class="bi @p.Icon" aria-hidden="true"></i>
+                    <span>@p.Name<small>@p.Sub</small></span>
+                </a>
+            </div>
+        }
+    </div>
+</section>
+
+@if (Model.Preorders.Count > 0)
+{
+    <section class="gs-section">
+        <div class="gs-section-head">
+            <h2>예약판매<small>발매일에 바로 받아 보세요</small></h2>
+            <a asp-controller="Products" asp-action="Index" asp-route-PreorderOnly="true">더보기 <i class="bi bi-chevron-right"></i></a>
+        </div>
+        <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3">
+            @foreach (var card in Model.Preorders)
+            {
+                <partial name="_ProductCard" model="new ProductCardModel(card, Model.Today, Model.WishedIds.Contains(card.Id))" />
+            }
+        </div>
+    </section>
 }
+
+@if (Model.Discounted.Count > 0)
+{
+    <section class="gs-section">
+        <div class="gs-section-head">
+            <h2>할인 중<small>지금이 살 때</small></h2>
+            <a asp-controller="Products" asp-action="Index" asp-route-DiscountOnly="true">더보기 <i class="bi bi-chevron-right"></i></a>
+        </div>
+        <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3">
+            @foreach (var card in Model.Discounted)
+            {
+                <partial name="_ProductCard" model="new ProductCardModel(card, Model.Today, Model.WishedIds.Contains(card.Id))" />
+            }
+        </div>
+    </section>
+}
+
+<section class="gs-section">
+    <div class="gs-section-head">
+        <h2>신상품</h2>
+        <a asp-controller="Products" asp-action="Index">전체 보기 <i class="bi bi-chevron-right"></i></a>
+    </div>
+    @if (Model.NewArrivals.Count == 0)
+    {
+        <div class="gs-empty"><i class="bi bi-box"></i>등록된 상품이 없습니다.</div>
+    }
+    else
+    {
+        <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3">
+            @foreach (var card in Model.NewArrivals)
+            {
+                <partial name="_ProductCard" model="new ProductCardModel(card, Model.Today, Model.WishedIds.Contains(card.Id))" />
+            }
+        </div>
+    }
+</section>
+
+<section class="gs-benefits" aria-label="쇼핑 혜택">
+    <div class="gs-benefit"><i class="bi bi-truck"></i><span><strong>3만원 이상 무료배송</strong>미만은 3,000원</span></div>
+    <div class="gs-benefit"><i class="bi bi-coin"></i><span><strong>1% 포인트 적립</strong>배송 완료 시 자동 적립</span></div>
+    <div class="gs-benefit"><i class="bi bi-calendar-check"></i><span><strong>예약판매</strong>발매일에 맞춰 발송</span></div>
+    <div class="gs-benefit"><i class="bi bi-shield-check"></i><span><strong>안전한 결제</strong>연습용 가상 결제</span></div>
+</section>

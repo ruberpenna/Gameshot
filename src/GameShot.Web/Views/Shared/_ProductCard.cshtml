@@ -1,3 +1,4 @@
+﻿@using GameShot.Web.Services
 @model ProductCardModel
 @{
     var card = Model.Card;
@@ -5,7 +6,7 @@
 }
 <div class="col">
     <div class="product-card card h-100 position-relative">
-        <a class="text-decoration-none text-body stretched-link-area" asp-controller="Products" asp-action="Details" asp-route-slug="@card.Slug">
+        <a class="text-decoration-none text-body" asp-controller="Products" asp-action="Details" asp-route-slug="@card.Slug">
             <div class="product-thumb">
                 @if (card.ThumbnailPath is not null)
                 {
@@ -16,30 +17,45 @@
                     {
                         <span class="badge text-bg-primary">예약판매</span>
                     }
-                    @if (!card.InStock)
+                    @if (card.MaxDiscountRate > 0)
                     {
-                        <span class="badge text-bg-secondary">품절</span>
-                    }
-                    @if (card.DiscountRate > 0)
-                    {
-                        <span class="badge text-bg-danger">@card.DiscountRate%</span>
+                        <span class="badge text-bg-danger">@(card.MaxDiscountRate > card.DiscountRate ? "최대 " : "")@card.MaxDiscountRate% 할인</span>
                     }
                 </div>
+                @if (!card.InStock)
+                {
+                    <div class="product-soldout">품절</div>
+                }
             </div>
             <div class="card-body">
-                <div class="small text-muted mb-1">@string.Join(" · ", card.Platforms)</div>
+                <div class="product-platforms">
+                    @foreach (var platform in card.Platforms)
+                    {
+                        <span class="pf-badge @PlatformStyle.CssClass(platform)">@PlatformStyle.ShortName(platform)</span>
+                    }
+                </div>
                 <div class="product-title">@card.Title</div>
                 <div class="mt-2">
                     @if (card.DiscountRate > 0)
                     {
-                        <span class="text-muted text-decoration-line-through small me-1">@card.ListPriceAtMin?.ToString("N0")원</span>
+                        <span class="gs-price-rate">@card.DiscountRate%</span>
                     }
-                    <strong>@card.MinSalePrice?.ToString("N0")원</strong>
+                    <span class="gs-price">@card.MinSalePrice?.ToString("N0")원</span>
+                    @if (card.DiscountRate > 0)
+                    {
+                        <span class="gs-price-list">@card.ListPriceAtMin?.ToString("N0")</span>
+                    }
                 </div>
-                @if (card.ReviewCount > 0)
-                {
-                    <div class="small mt-1"><span class="text-warning">★</span> @card.AverageRating?.ToString("0.0") <span class="text-muted">(@card.ReviewCount)</span></div>
-                }
+                <div class="product-meta">
+                    @if (card.ReviewCount > 0)
+                    {
+                        <span><span class="rating-stars">★</span> @card.AverageRating?.ToString("0.0") (@card.ReviewCount)</span>
+                    }
+                    @if (preorder)
+                    {
+                        <span class="ms-1">@card.ReleaseDate?.ToString("M/d") 발매</span>
+                    }
+                </div>
             </div>
         </a>
         <partial name="_WishButton" model="(card.Id, Model.IsWished, true)" />

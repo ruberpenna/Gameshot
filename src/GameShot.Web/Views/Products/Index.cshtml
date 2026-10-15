@@ -1,8 +1,14 @@
 @using GameShot.Web.Services
 @model ProductListViewModel
 @{
-    ViewData["Title"] = "상품";
     var f = Model.Filter;
+    var platformName = Model.Platforms.FirstOrDefault(p => p.Code == f.Platform)?.Name;
+    var heading = f.PreorderOnly ? "예약판매" : f.DiscountOnly ? "할인 상품" : platformName ?? "전체 상품";
+    if (!string.IsNullOrWhiteSpace(f.Q))
+    {
+        heading = $"'{f.Q}' 검색 결과";
+    }
+    ViewData["Title"] = heading;
 
     // 현재 필터를 유지한 채 일부 값만 바꾼 링크용 라우트 값
     Dictionary<string, string?> Route(string? platform = null, int? page = null, bool keepPlatform = true) => new()
@@ -12,13 +18,18 @@
         ["Q"] = f.Q,
         ["Sort"] = f.Sort == ProductSort.Newest ? null : f.Sort.ToString(),
         ["InStockOnly"] = f.InStockOnly ? "true" : null,
+        ["PreorderOnly"] = f.PreorderOnly ? "true" : null,
+        ["DiscountOnly"] = f.DiscountOnly ? "true" : null,
         ["Page"] = page is > 1 ? page.ToString() : null,
     };
 }
 
-<h1 class="h4 mb-3">상품</h1>
+<div class="gs-page-head">
+    <h1 class="h3">@heading</h1>
+    <span class="text-muted small">총 <strong class="text-body">@Model.Result.TotalCount.ToString("N0")</strong>개</span>
+</div>
 
-<ul class="nav nav-pills platform-tabs mb-3">
+<ul class="nav platform-tabs mb-3">
     <li class="nav-item">
         <a class="nav-link @(string.IsNullOrEmpty(f.Platform) ? "active" : "")" asp-action="Index" asp-all-route-data="Route(keepPlatform: false)">전체</a>
     </li>
@@ -30,44 +41,59 @@
     }
 </ul>
 
-<form method="get" asp-action="Index" class="row g-2 align-items-center mb-4">
+<form method="get" asp-action="Index" class="gs-filter">
     <input type="hidden" name="Platform" value="@f.Platform" />
-    <div class="col-12 col-md-4">
-        <input type="search" name="Q" value="@f.Q" class="form-control" placeholder="게임 이름, 퍼블리셔 검색" />
-    </div>
-    <div class="col-6 col-md-2">
-        <select name="GenreId" class="form-select">
-            <option value="">모든 장르</option>
-            @foreach (var genre in Model.Genres)
-            {
-                <option value="@genre.Id" selected="@(f.GenreId == genre.Id)">@genre.Name</option>
-            }
-        </select>
-    </div>
-    <div class="col-6 col-md-2">
-        <select name="Sort" class="form-select">
-            <option value="Newest" selected="@(f.Sort == ProductSort.Newest)">최신 발매순</option>
-            <option value="PriceAsc" selected="@(f.Sort == ProductSort.PriceAsc)">낮은 가격순</option>
-            <option value="PriceDesc" selected="@(f.Sort == ProductSort.PriceDesc)">높은 가격순</option>
-            <option value="Title" selected="@(f.Sort == ProductSort.Title)">이름순</option>
-        </select>
-    </div>
-    <div class="col-6 col-md-2">
-        <div class="form-check">
-            <input class="form-check-input" type="checkbox" name="InStockOnly" value="true" id="inStockOnly" checked="@f.InStockOnly" />
-            <label class="form-check-label" for="inStockOnly">재고 있는 상품만</label>
+    <div class="row g-2 align-items-center">
+        <div class="col-12 col-lg-4">
+            <div class="input-group">
+                <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                <input type="search" name="Q" value="@f.Q" class="form-control border-start-0" placeholder="게임 이름, 퍼블리셔" aria-label="검색어" />
+            </div>
         </div>
-    </div>
-    <div class="col-6 col-md-2 d-grid">
-        <button type="submit" class="btn btn-dark">검색</button>
+        <div class="col-6 col-lg-2">
+            <select name="GenreId" class="form-select" aria-label="장르">
+                <option value="">모든 장르</option>
+                @foreach (var genre in Model.Genres)
+                {
+                    <option value="@genre.Id" selected="@(f.GenreId == genre.Id)">@genre.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-lg-2">
+            <select name="Sort" class="form-select" aria-label="정렬">
+                <option value="Newest" selected="@(f.Sort == ProductSort.Newest)">최신 발매순</option>
+                <option value="PriceAsc" selected="@(f.Sort == ProductSort.PriceAsc)">낮은 가격순</option>
+                <option value="PriceDesc" selected="@(f.Sort == ProductSort.PriceDesc)">높은 가격순</option>
+                <option value="Title" selected="@(f.Sort == ProductSort.Title)">이름순</option>
+            </select>
+        </div>
+        <div class="col-12 col-lg-3 d-flex flex-wrap gap-2">
+            <span class="gs-chip-check">
+                <input type="checkbox" name="InStockOnly" value="true" id="inStockOnly" checked="@f.InStockOnly" />
+                <label for="inStockOnly">재고 있음</label>
+            </span>
+            <span class="gs-chip-check">
+                <input type="checkbox" name="PreorderOnly" value="true" id="preorderOnly" checked="@f.PreorderOnly" />
+                <label for="preorderOnly">예약판매</label>
+            </span>
+            <span class="gs-chip-check">
+                <input type="checkbox" name="DiscountOnly" value="true" id="discountOnly" checked="@f.DiscountOnly" />
+                <label for="discountOnly">할인</label>
+            </span>
+        </div>
+        <div class="col-12 col-lg-1 d-grid">
+            <button type="submit" class="btn btn-dark">적용</button>
+        </div>
     </div>
 </form>
 
-<p class="small text-muted">총 @Model.Result.TotalCount.ToString("N0")개</p>
-
 @if (Model.Result.Items.Count == 0)
 {
-    <p class="text-muted py-5 text-center">조건에 맞는 상품이 없습니다.</p>
+    <div class="gs-empty">
+        <i class="bi bi-search"></i>
+        조건에 맞는 상품이 없습니다.
+        <div class="mt-3"><a class="btn btn-outline-dark btn-sm" asp-action="Index">필터 초기화</a></div>
+    </div>
 }
 else
 {

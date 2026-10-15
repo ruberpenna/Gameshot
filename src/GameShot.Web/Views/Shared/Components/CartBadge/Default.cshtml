@@ -1,8 +1,11 @@
 @model int
-<a class="nav-link text-dark" asp-area="" asp-controller="Cart" asp-action="Index">
-    장바구니
-    @if (Model > 0)
-    {
-        <span class="badge rounded-pill text-bg-danger">@Model</span>
-    }
+<a class="gs-action" asp-area="" asp-controller="Cart" asp-action="Index" aria-label="장바구니 @(Model)개">
+    <span class="gs-icon-wrap">
+        <i class="bi bi-bag" aria-hidden="true"></i>
+        @if (Model > 0)
+        {
+            <span class="gs-count">@Model</span>
+        }
+    </span>
+    <span class="gs-action-label">장바구니</span>
 </a>

@@ -10,13 +10,22 @@ public class HomeController(CatalogService catalog, WishlistService wishlist, Us
 {
     public async Task<IActionResult> Index(CancellationToken ct)
     {
-        var latest = await catalog.SearchAsync(new ProductFilter { Sort = ProductSort.Newest }, ct);
-        var cards = latest.Items.Take(8).ToList();
+        var preorders = (await catalog.SearchAsync(new ProductFilter { PreorderOnly = true }, ct)).Items
+            .OrderBy(c => c.ReleaseDate).Take(4).ToList();
+        var discounted = (await catalog.SearchAsync(new ProductFilter { DiscountOnly = true, InStockOnly = true }, ct)).Items
+            .OrderByDescending(c => c.MaxDiscountRate).Take(4).ToList();
+        var newest = (await catalog.SearchAsync(new ProductFilter { Sort = ProductSort.Newest }, ct)).Items
+            .Where(c => c.ReleaseDate is null || c.ReleaseDate <= catalog.Today).Take(8).ToList();
+
+        var shown = preorders.Concat(discounted).Concat(newest).Select(c => c.Id);
         return View(new HomeViewModel
         {
-            NewArrivals = cards,
+            Featured = preorders.FirstOrDefault() ?? newest.FirstOrDefault(),
+            Preorders = preorders,
+            Discounted = discounted,
+            NewArrivals = newest,
             Today = catalog.Today,
-            WishedIds = await wishlist.WishedAmongAsync(users.GetUserId(User), cards.Select(c => c.Id), ct),
+            WishedIds = await wishlist.WishedAmongAsync(users.GetUserId(User), shown, ct),
         });
     }
 

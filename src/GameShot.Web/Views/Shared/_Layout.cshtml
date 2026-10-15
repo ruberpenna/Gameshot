@@ -1,55 +1,110 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f172a" />
     <title>@ViewData["Title"] - GameShot</title>
     <script type="importmap"></script>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/GameShot.Web.styles.css" asp-append-version="true" />
 </head>
 <body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">GameShot</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Products" asp-action="Index">전체 상품</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Products" asp-action="Index" asp-route-Platform="ps5">PS5</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Products" asp-action="Index" asp-route-Platform="switch2">Switch 2</a>
-                        </li>
-                    </ul>
-                    <ul class="navbar-nav">
-                        <li class="nav-item">
-                            <vc:cart-badge />
-                        </li>
-                    </ul>
+    @{
+        var query = Context.Request.Query;
+        var path = Context.Request.Path.Value ?? "";
+        var onProducts = path.StartsWith("/products", StringComparison.OrdinalIgnoreCase) && path.TrimEnd('/').Length == "/products".Length;
+        string NavActive(string? platform = null, string? flag = null)
+        {
+            if (!onProducts) return "";
+            var matchPlatform = string.Equals(query["Platform"], platform ?? "", StringComparison.OrdinalIgnoreCase)
+                || (platform is null && string.IsNullOrEmpty(query["Platform"]));
+            var matchFlag = flag is null
+                ? string.IsNullOrEmpty(query["PreorderOnly"]) && string.IsNullOrEmpty(query["DiscountOnly"])
+                : query[flag] == "true";
+            return matchPlatform && matchFlag ? "active" : "";
+        }
+    }
+    <header class="gs-header">
+        <div class="container">
+            <div class="gs-topbar">
+                <a class="gs-logo" asp-area="" asp-controller="Home" asp-action="Index" aria-label="GameShot 홈">
+                    <span class="gs-logo-mark" aria-hidden="true">🎮</span>
+                    <span>Game<b>Shot</b></span>
+                </a>
+
+                <form class="gs-search" role="search" method="get" asp-area="" asp-controller="Products" asp-action="Index">
+                    <i class="bi bi-search" aria-hidden="true"></i>
+                    <input type="search" name="Q" value="@(onProducts ? query["Q"].ToString() : "")" placeholder="어떤 게임을 찾으세요?" aria-label="게임 검색" />
+                </form>
+
+                <div class="gs-actions">
+                    <vc:cart-badge />
                     <partial name="_LoginPartial" />
                 </div>
             </div>
+        </div>
+        <nav class="gs-nav" aria-label="카테고리">
+            <div class="container">
+                <ul>
+                    <li><a class="@NavActive()" asp-area="" asp-controller="Products" asp-action="Index">전체</a></li>
+                    <li><a class="@NavActive("ps5")" asp-area="" asp-controller="Products" asp-action="Index" asp-route-Platform="ps5">PS5</a></li>
+                    <li><a class="@NavActive("ps4")" asp-area="" asp-controller="Products" asp-action="Index" asp-route-Platform="ps4">PS4</a></li>
+                    <li><a class="@NavActive("switch2")" asp-area="" asp-controller="Products" asp-action="Index" asp-route-Platform="switch2">Switch 2</a></li>
+                    <li><a class="@NavActive("switch")" asp-area="" asp-controller="Products" asp-action="Index" asp-route-Platform="switch">Switch</a></li>
+                    <li><a class="@NavActive("xbox")" asp-area="" asp-controller="Products" asp-action="Index" asp-route-Platform="xbox">Xbox</a></li>
+                    <li><a class="gs-nav-new @NavActive(null, "PreorderOnly")" asp-area="" asp-controller="Products" asp-action="Index" asp-route-PreorderOnly="true"><i class="bi bi-calendar-event"></i> 예약판매</a></li>
+                    <li><a class="gs-nav-hot @NavActive(null, "DiscountOnly")" asp-area="" asp-controller="Products" asp-action="Index" asp-route-DiscountOnly="true"><i class="bi bi-lightning-charge-fill"></i> 할인</a></li>
+                </ul>
+            </div>
         </nav>
     </header>
-    <div class="container">
-        <main role="main" class="pb-3">
-            <partial name="_Flash" />
-            @RenderBody()
-        </main>
-    </div>
 
-    <footer class="border-top footer text-muted">
+    <main role="main" class="container pb-3">
+        <div class="pt-3"><partial name="_Flash" /></div>
+        @RenderBody()
+    </main>
+
+    <footer class="gs-footer">
         <div class="container">
-            &copy; 2026 GameShot · 연습용 프로젝트 · <a asp-area="" asp-controller="Home" asp-action="Privacy">개인정보 처리방침</a>
+            <div class="row g-4">
+                <div class="col-md-5">
+                    <a class="gs-logo mb-2" asp-area="" asp-controller="Home" asp-action="Index">
+                        <span class="gs-logo-mark" aria-hidden="true">🎮</span><span>Game<b>Shot</b></span>
+                    </a>
+                    <p class="mb-0">콘솔 게임 쇼핑몰 연습 프로젝트입니다.<br />실제 상품은 배송되지 않고 결제도 가상입니다.</p>
+                </div>
+                <div class="col-6 col-md-2">
+                    <h2>쇼핑</h2>
+                    <ul>
+                        <li><a asp-area="" asp-controller="Products" asp-action="Index">전체 상품</a></li>
+                        <li><a asp-area="" asp-controller="Products" asp-action="Index" asp-route-PreorderOnly="true">예약판매</a></li>
+                        <li><a asp-area="" asp-controller="Products" asp-action="Index" asp-route-DiscountOnly="true">할인</a></li>
+                    </ul>
+                </div>
+                <div class="col-6 col-md-2">
+                    <h2>마이페이지</h2>
+                    <ul>
+                        <li><a asp-area="" asp-controller="Orders" asp-action="Index">주문 내역</a></li>
+                        <li><a asp-area="" asp-controller="Wishlist" asp-action="Index">찜</a></li>
+                        <li><a asp-area="" asp-controller="Cart" asp-action="Index">장바구니</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-3">
+                    <h2>안내</h2>
+                    <ul>
+                        <li>3만원 이상 무료배송</li>
+                        <li>배송 완료 시 1% 포인트 적립</li>
+                        <li><a asp-area="" asp-controller="Home" asp-action="Privacy">개인정보 처리방침</a></li>
+                    </ul>
+                </div>
+            </div>
+            <hr class="border-secondary opacity-25 my-4" />
+            <p class="mb-0 small">&copy; 2026 GameShot · ASP.NET Core 10 연습 프로젝트</p>
         </div>
     </footer>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>

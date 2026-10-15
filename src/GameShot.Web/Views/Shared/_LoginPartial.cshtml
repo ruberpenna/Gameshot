@@ -1,36 +1,39 @@
 @using Microsoft.AspNetCore.Identity
 @using GameShot.Web.Models
 @inject SignInManager<ApplicationUser> SignInManager
-@inject UserManager<ApplicationUser> UserManager
 
-<ul class="navbar-nav">
 @if (SignInManager.IsSignedIn(User))
 {
     @if (User.IsInRole(GameShot.Web.Data.AdminBootstrap.AdminRole))
     {
-        <li class="nav-item">
-            <a class="nav-link text-danger fw-semibold" asp-area="Admin" asp-controller="Dashboard" asp-action="Index">관리자</a>
-        </li>
+        <a class="gs-action gs-admin-link" asp-area="Admin" asp-controller="Dashboard" asp-action="Index" title="관리자">
+            <i class="bi bi-speedometer2" aria-hidden="true"></i><span class="gs-action-label">관리자</span>
+        </a>
     }
-    <li class="nav-item">
-        <a class="nav-link text-dark" asp-area="" asp-controller="Orders" asp-action="Index">마이페이지</a>
-    </li>
-    <li class="nav-item">
-        <a  class="nav-link text-dark" asp-area="Identity" asp-page="/Account/Manage/Index" title="내 정보">@GameShot.Web.Services.Identity.ClaimsPrincipalExtensions.DisplayName(User) 님</a>
-    </li>
-    <li class="nav-item">
-        <form  class="form-inline" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })">
-            <button  type="submit" class="nav-link btn btn-link text-dark">로그아웃</button>
-        </form>
-    </li>
+    <div class="dropdown">
+        <button class="gs-action dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-person-circle" aria-hidden="true"></i>
+            <span class="gs-action-label">@GameShot.Web.Services.Identity.ClaimsPrincipalExtensions.DisplayName(User) 님</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" asp-area="" asp-controller="Orders" asp-action="Index"><i class="bi bi-receipt"></i> 주문 내역</a></li>
+            <li><a class="dropdown-item" asp-area="" asp-controller="Wishlist" asp-action="Index"><i class="bi bi-heart"></i> 찜</a></li>
+            <li><a class="dropdown-item" asp-area="" asp-controller="My" asp-action="Coupons"><i class="bi bi-ticket-perforated"></i> 쿠폰</a></li>
+            <li><a class="dropdown-item" asp-area="" asp-controller="My" asp-action="Points"><i class="bi bi-coin"></i> 포인트</a></li>
+            <li><a class="dropdown-item" asp-area="Identity" asp-page="/Account/Manage/Index" title="내 정보"><i class="bi bi-gear"></i> 내 정보</a></li>
+            <li><hr class="dropdown-divider" /></li>
+            <li>
+                <form asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })">
+                    <button type="submit" class="dropdown-item"><i class="bi bi-box-arrow-right"></i> 로그아웃</button>
+                </form>
+            </li>
+        </ul>
+    </div>
 }
 else
 {
-    <li class="nav-item">
-        <a class="nav-link text-dark" asp-area="Identity" asp-page="/Account/Register">회원가입</a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link text-dark" asp-area="Identity" asp-page="/Account/Login">로그인</a>
-    </li>
+    <a class="gs-action" asp-area="Identity" asp-page="/Account/Login">
+        <i class="bi bi-person" aria-hidden="true"></i><span class="gs-action-label">로그인</span>
+    </a>
+    <a class="gs-action d-none d-md-inline-flex" asp-area="Identity" asp-page="/Account/Register">회원가입</a>
 }
-</ul>

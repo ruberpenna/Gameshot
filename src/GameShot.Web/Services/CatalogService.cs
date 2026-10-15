@@ -19,6 +19,10 @@ public record ProductFilter
     public string? Q { get; init; }
     public ProductSort Sort { get; init; } = ProductSort.Newest;
     public bool InStockOnly { get; init; }
+    /// <summary>발매 전(예약판매) 상품만</summary>
+    public bool PreorderOnly { get; init; }
+    /// <summary>할인 중인 옵션이 있는 상품만</summary>
+    public bool DiscountOnly { get; init; }
     /// <summary>이 상품들만 (찜 목록 등)</summary>
     public IReadOnlyCollection<int>? Ids { get; init; }
     public int Page { get; init; } = 1;
@@ -36,7 +40,8 @@ public record ProductCard(
     bool InStock,
     IReadOnlyList<string> Platforms,
     double? AverageRating = null,
-    int ReviewCount = 0)
+    int ReviewCount = 0,
+    int MaxDiscountRate = 0)
 {
     public int DiscountRate =>
         MinSalePrice is { } sale && ListPriceAtMin is { } list && list > 0 && sale < list
@@ -73,6 +78,15 @@ public class CatalogService(ApplicationDbContext db, TimeProvider clock)
             var q = filter.Q.Trim();
             products = products.Where(p => p.Title.Contains(q) || (p.Publisher != null && p.Publisher.Contains(q)));
         }
+        if (filter.PreorderOnly)
+        {
+            var today = Today;
+            products = products.Where(p => p.ReleaseDate != null && p.ReleaseDate > today);
+        }
+        if (filter.DiscountOnly)
+        {
+            products = products.Where(p => p.Variants.Any(v => v.IsActive && v.SalePrice < v.ListPrice));
+        }
         if (filter.Ids is { } onlyIds)
         {
             products = products.Where(p => onlyIds.Contains(p.Id));
@@ -96,6 +110,10 @@ public class CatalogService(ApplicationDbContext db, TimeProvider clock)
                 .Min(v => (int?)v.ListPrice),
             InStock = p.Variants.Any(v => v.IsActive && v.Stock > 0),
             ReviewCount = db.Reviews.Count(r => r.ProductId == p.Id && !r.IsHidden),
+            // 옵션 중 가장 큰 할인율 (카드의 "최대 n% 할인", 할인 목록 정렬용)
+            MaxDiscountRate = p.Variants
+                .Where(v => v.IsActive && v.ListPrice > 0 && v.SalePrice < v.ListPrice)
+                .Max(v => (int?)((v.ListPrice - v.SalePrice) * 100 / v.ListPrice)) ?? 0,
             AverageRating = db.Reviews.Where(r => r.ProductId == p.Id && !r.IsHidden).Average(r => (double?)r.Rating),
         });
 
@@ -127,7 +145,7 @@ public class CatalogService(ApplicationDbContext db, TimeProvider clock)
             .Select(r => new ProductCard(
                 r.Id, r.Slug, r.Title, r.ThumbnailPath, r.ReleaseDate,
                 r.MinSalePrice, r.ListPriceAtMin, r.InStock,
-                platformsByProduct.GetValueOrDefault(r.Id) ?? [], r.AverageRating, r.ReviewCount))
+                platformsByProduct.GetValueOrDefault(r.Id) ?? [], r.AverageRating, r.ReviewCount, r.MaxDiscountRate))
             .ToList();
 
         return new PagedResult<ProductCard>(items, page, PageSize, total);

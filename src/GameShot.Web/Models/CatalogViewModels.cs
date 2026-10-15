@@ -23,6 +23,10 @@ public record ProductDetailViewModel(Product Product, DateOnly Today, bool IsWis
 
 public class HomeViewModel
 {
+    /// <summary>배너에 띄울 상품 (가장 가까운 예약판매작, 없으면 최신작)</summary>
+    public ProductCard? Featured { get; init; }
+    public required IReadOnlyList<ProductCard> Preorders { get; init; }
+    public required IReadOnlyList<ProductCard> Discounted { get; init; }
     public required IReadOnlyList<ProductCard> NewArrivals { get; init; }
     public DateOnly Today { get; init; }
     public IReadOnlySet<int> WishedIds { get; init; } = new HashSet<int>();
