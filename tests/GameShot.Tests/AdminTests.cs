@@ -34,7 +34,7 @@ public sealed class AdminTests : IAsyncLifetime
         _db = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlite(_connection).Options);
         await _db.Database.EnsureCreatedAsync();
         _carts = new CartService(_db, TimeProvider.System);
-        _orders = new OrderService(_db, _carts, TimeProvider.System, Options.Create(new ShopOptions()));
+        _orders = new OrderService(_db, _carts, new BenefitService(_db, TimeProvider.System), TimeProvider.System, Options.Create(new ShopOptions()));
         _products = new ProductAdminService(_db);
 
         _ps5 = new Platform { Code = "ps5", Name = "PlayStation 5" };

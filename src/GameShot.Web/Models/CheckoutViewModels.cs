@@ -38,6 +38,13 @@ public class CheckoutForm
     /// <summary>주문서에 보여준 결제 금액 (서버에서 다시 계산한 금액과 비교)</summary>
     public int ExpectedTotal { get; set; }
 
+    /// <summary>쓸 쿠폰 (쿠폰함의 Id, 안 쓰면 null)</summary>
+    public int? UserCouponId { get; set; }
+
+    [Display(Name = "포인트")]
+    [Range(0, int.MaxValue, ErrorMessage = "{0}는 0 이상으로 입력하세요.")]
+    public int PointsToUse { get; set; }
+
     public ShippingInfo ToShippingInfo() => new()
     {
         RecipientName = RecipientName.Trim(),
@@ -76,5 +83,6 @@ public class CheckoutForm
 public class CheckoutViewModel
 {
     public required CheckoutForm Form { get; init; }
-    public required CartView Cart { get; init; }
+    public required CheckoutQuote Quote { get; init; }
+    public CartView Cart => Quote.Cart;
 }

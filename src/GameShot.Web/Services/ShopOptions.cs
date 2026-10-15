@@ -11,6 +11,9 @@ public class ShopOptions
     /// <summary>이 기간 동안 손대지 않은 비회원 장바구니는 지운다 (쿠키 수명과 같게)</summary>
     public TimeSpan GuestCartRetention { get; set; } = TimeSpan.FromDays(30);
 
+    /// <summary>배송 완료 때 적립하는 포인트 비율 (배송비 제외 실결제액 기준)</summary>
+    public decimal PointEarnRate { get; set; } = 0.01m;
+
     /// <summary>정리 작업 실행 간격</summary>
     public TimeSpan MaintenanceInterval { get; set; } = TimeSpan.FromMinutes(1);
 }

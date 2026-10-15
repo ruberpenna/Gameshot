@@ -1,0 +1,56 @@
+@model List<AdminCouponRow>
+@{
+    ViewData["Title"] = "쿠폰 관리";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">쿠폰 관리</h1>
+    <a class="btn btn-dark" asp-action="Create">쿠폰 만들기</a>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover admin-table mb-0 small">
+            <thead class="table-light">
+                <tr>
+                    <th>코드</th>
+                    <th>이름</th>
+                    <th class="num">할인</th>
+                    <th class="num">최소 주문</th>
+                    <th>종료</th>
+                    <th class="num">발급 / 제한</th>
+                    <th class="num">사용</th>
+                    <th>상태</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Count == 0)
+                {
+                    <tr><td colspan="8" class="text-muted p-3">쿠폰이 없습니다.</td></tr>
+                }
+                @foreach (var c in Model)
+                {
+                    <tr>
+                        <td><a asp-action="Edit" asp-route-id="@c.Id" class="fw-semibold font-monospace">@c.Code</a></td>
+                        <td>@c.Name</td>
+                        <td class="num">@c.DiscountText</td>
+                        <td class="num">@c.MinOrderAmount.ToString("N0")</td>
+                        <td>@(c.EndsAt is { } e ? KoreanTime.FromUtc(e).ToString("yyyy.MM.dd HH:mm") : "-")</td>
+                        <td class="num">@c.IssuedCount / @(c.IssueLimit?.ToString("N0") ?? "∞")</td>
+                        <td class="num">@c.UsedCount</td>
+                        <td>
+                            @if (c.IsActive)
+                            {
+                                <span class="badge text-bg-success">사용 가능</span>
+                            }
+                            else
+                            {
+                                <span class="badge text-bg-secondary">중지</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

@@ -1,0 +1,55 @@
+@model PagedResult<AdminMemberRow>
+@{
+    ViewData["Title"] = "회원";
+    var q = ViewData["Q"] as string;
+}
+
+<h1 class="h4 mb-3">회원</h1>
+
+<form method="get" asp-action="Index" class="d-flex gap-2 mb-3" style="max-width: 28rem">
+    <input type="search" name="q" value="@q" class="form-control" placeholder="이메일 검색" />
+    <button type="submit" class="btn btn-dark text-nowrap">검색</button>
+</form>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover admin-table mb-0 small">
+            <thead class="table-light">
+                <tr>
+                    <th>이메일</th>
+                    <th>가입일</th>
+                    <th class="num">주문</th>
+                    <th class="num">포인트</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var m in Model.Items)
+                {
+                    <tr>
+                        <td>@m.Email</td>
+                        <td>@KoreanTime.FromUtc(m.CreatedAt).ToString("yyyy.MM.dd")</td>
+                        <td class="num">@m.OrderCount</td>
+                        <td class="num">@m.PointBalance.ToString("N0")P</td>
+                        <td><a asp-action="Points" asp-route-id="@m.Id" class="btn btn-sm btn-outline-dark">포인트 관리</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+<p class="small text-muted mt-2">총 @Model.TotalCount.ToString("N0")명</p>
+
+@if (Model.TotalPages > 1)
+{
+    <nav aria-label="페이지">
+        <ul class="pagination pagination-sm">
+            @for (var p = 1; p <= Model.TotalPages; p++)
+            {
+                <li class="page-item @(p == Model.Page ? "active" : "")">
+                    <a class="page-link" asp-action="Index" asp-route-q="@q" asp-route-page="@p">@p</a>
+                </li>
+            }
+        </ul>
+    </nav>
+}

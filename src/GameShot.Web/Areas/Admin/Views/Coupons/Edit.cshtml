@@ -1,0 +1,92 @@
+@using GameShot.Web.Models.Benefits
+@model CouponForm
+@{
+    var id = ViewData["Id"] as int?;
+    ViewData["Title"] = id is null ? "쿠폰 만들기" : $"쿠폰 {Model.Code}";
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb small">
+        <li class="breadcrumb-item"><a asp-action="Index">쿠폰 관리</a></li>
+        <li class="breadcrumb-item active" aria-current="page">@(id is null ? "새 쿠폰" : Model.Code)</li>
+    </ol>
+</nav>
+
+<div class="row g-4">
+    <div class="col-xl-8">
+        <form method="post" asp-action="@(id is null ? "Create" : "Edit")" asp-route-id="@id" class="card">
+            <div class="card-header bg-white"><strong>@(id is null ? "쿠폰 만들기" : "쿠폰 수정")</strong></div>
+            <div class="card-body">
+                <div asp-validation-summary="All" class="alert alert-danger"></div>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label asp-for="Code" class="form-label"></label>
+                        <input asp-for="Code" class="form-control text-uppercase font-monospace" placeholder="WELCOME5000" />
+                        <div class="form-text">회원이 쿠폰함에 입력하는 코드 (대문자로 저장)</div>
+                    </div>
+                    <div class="col-md-8">
+                        <label asp-for="Name" class="form-label"></label>
+                        <input asp-for="Name" class="form-control" placeholder="신규 가입 5,000원 할인" />
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="DiscountType" class="form-label"></label>
+                        <select asp-for="DiscountType" class="form-select">
+                            <option value="@DiscountType.Amount">정액 (원)</option>
+                            <option value="@DiscountType.Percent">정률 (%)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="DiscountValue" class="form-label"></label>
+                        <input asp-for="DiscountValue" type="number" min="1" class="form-control" />
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="MaxDiscount" class="form-label"></label>
+                        <input asp-for="MaxDiscount" type="number" min="1" class="form-control" placeholder="정률일 때만" />
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="MinOrderAmount" class="form-label"></label>
+                        <input asp-for="MinOrderAmount" type="number" min="0" class="form-control" />
+                        <div class="form-text">상품 금액 기준</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="StartsAtKst" class="form-label"></label>
+                        <input asp-for="StartsAtKst" type="datetime-local" class="form-control" />
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="EndsAtKst" class="form-label"></label>
+                        <input asp-for="EndsAtKst" type="datetime-local" class="form-control" />
+                        <div class="form-text">한국 시간. 비우면 기한 없음</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="IssueLimit" class="form-label"></label>
+                        <input asp-for="IssueLimit" type="number" min="1" class="form-control" placeholder="비우면 무제한" />
+                        <div class="form-text">선착순 수량</div>
+                    </div>
+                    <div class="col-md-8 d-flex align-items-end">
+                        <div class="form-check form-switch">
+                            <input asp-for="IsActive" class="form-check-input" role="switch" />
+                            <label asp-for="IsActive" class="form-check-label">사용 가능 (끄면 등록·사용 모두 막힘)</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-white text-end">
+                <button type="submit" class="btn btn-dark">@(id is null ? "만들기" : "저장")</button>
+            </div>
+        </form>
+    </div>
+
+    @if (id is not null)
+    {
+        <div class="col-xl-4">
+            <form method="post" asp-action="Issue" asp-route-id="@id" class="card">
+                <div class="card-header bg-white"><strong>회원에게 발급</strong></div>
+                <div class="card-body">
+                    <input name="email" type="email" class="form-control mb-2" placeholder="회원 이메일" required />
+                    <button type="submit" class="btn btn-outline-dark w-100">발급</button>
+                    <div class="form-text">코드를 몰라도 회원 쿠폰함에 바로 넣습니다. 한 회원에게 한 장만.</div>
+                </div>
+            </form>
+        </div>
+    }
+</div>

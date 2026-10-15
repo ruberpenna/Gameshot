@@ -130,3 +130,12 @@ body {
   background: #111827;
   color: #fff;
 }
+
+.coupon-card {
+  border-left: 4px solid #dc3545;
+}
+
+.coupon-card-off {
+  opacity: .55;
+  border-left-color: #adb5bd;
+}

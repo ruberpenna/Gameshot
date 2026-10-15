@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using GameShot.Web.Data;
+using GameShot.Web.Models.Benefits;
 using GameShot.Web.Models.Ordering;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -11,6 +12,17 @@ public record OrderResult(bool Success, string Message, string? OrderNumber = nu
     public static OrderResult Ok(string message, string orderNumber) => new(true, message, orderNumber);
     public static OrderResult Fail(string message) => new(false, message);
 }
+
+/// <summary>주문서 금액 미리보기 결과</summary>
+public record CheckoutQuote(
+    CartView Cart,
+    IReadOnlyList<CouponOption> Coupons,
+    int PointBalance,
+    int MaxUsablePoints,
+    PriceBreakdown Price,
+    int? AppliedUserCouponId,
+    int ExpectedEarnPoints,
+    string? Error);
 
 public record AdminOrderFilter
 {
@@ -44,7 +56,12 @@ public record OrderSummary(
 /// 주문서를 제출하면 그 자리에서 재고를 잡고(PendingPayment), 결제 실패·취소 때 되돌린다.
 /// 결제는 가상 결제라 실제 PG 연동 없이 성공/실패만 고른다.
 /// </summary>
-public class OrderService(ApplicationDbContext db, CartService carts, TimeProvider clock, IOptions<ShopOptions> options)
+public class OrderService(
+    ApplicationDbContext db,
+    CartService carts,
+    BenefitService benefits,
+    TimeProvider clock,
+    IOptions<ShopOptions> options)
 {
     public const string ReasonCustomer = "고객 취소";
     public const string ReasonPaymentFailed = "결제 실패";
@@ -67,8 +84,48 @@ public class OrderService(ApplicationDbContext db, CartService carts, TimeProvid
         _ => status.ToString(),
     };
 
+    /// <summary>
+    /// 주문서 금액 미리보기. 쿠폰·포인트를 바꿀 때마다 화면이 이걸 다시 불러서, 금액 계산은 서버 한 곳에서만 한다.
+    /// 쓸 수 없는 쿠폰이나 잔액보다 많은 포인트는 빼고 계산하고 이유를 Error로 알려 준다.
+    /// </summary>
+    public async Task<CheckoutQuote> QuoteAsync(string userId, int? userCouponId, int pointsToUse, CancellationToken ct = default)
+    {
+        var cart = await carts.GetViewAsync(new CartOwner(userId, null), ct);
+        var coupons = await benefits.GetOptionsAsync(userId, cart.Subtotal, ct);
+        var balance = await benefits.GetBalanceAsync(userId, ct);
+
+        string? error = null;
+        var couponDiscount = 0;
+        if (userCouponId is { } id)
+        {
+            (couponDiscount, _, error) = await benefits.CheckCouponAsync(userId, id, cart.Subtotal, ct);
+            if (error is not null)
+            {
+                userCouponId = null;
+            }
+        }
+
+        var maxPoints = PriceCalculator.MaxUsablePoints(cart.Subtotal, couponDiscount, balance);
+        if (pointsToUse < 0)
+        {
+            pointsToUse = 0;
+        }
+        if (pointsToUse > maxPoints)
+        {
+            error ??= $"포인트는 최대 {maxPoints:N0}P까지 쓸 수 있습니다.";
+            pointsToUse = maxPoints;
+        }
+
+        var price = new PriceBreakdown(cart.Subtotal, cart.ShippingFee, couponDiscount, pointsToUse);
+        return new CheckoutQuote(cart, coupons, balance, maxPoints, price, userCouponId,
+            PriceCalculator.EarnedPoints(price.EarnBase, options.Value.PointEarnRate), error);
+    }
+
     /// <param name="expectedTotal">주문서 화면에 보여준 결제 금액. 그사이 가격이 바뀌었으면 주문하지 않는다.</param>
-    public async Task<OrderResult> PlaceOrderAsync(string userId, ShippingInfo shipping, int expectedTotal, CancellationToken ct = default)
+    /// <param name="userCouponId">쓸 쿠폰 (쿠폰함의 Id)</param>
+    /// <param name="pointsToUse">쓸 포인트</param>
+    public async Task<OrderResult> PlaceOrderAsync(string userId, ShippingInfo shipping, int expectedTotal,
+        int? userCouponId = null, int pointsToUse = 0, CancellationToken ct = default)
     {
         var cart = await carts.GetViewAsync(new CartOwner(userId, null), ct);
         if (cart.Lines.Count == 0)
@@ -79,7 +136,31 @@ public class OrderService(ApplicationDbContext db, CartService carts, TimeProvid
         {
             return OrderResult.Fail("주문할 수 없는 상품이 있습니다. 장바구니를 확인해 주세요.");
         }
-        if (cart.Total != expectedTotal)
+
+        // 미리보기와 달리 주문할 때는 조금이라도 안 맞으면 고쳐서 진행하지 않고 거부한다
+        var couponDiscount = 0;
+        string? couponName = null;
+        if (userCouponId is { } couponId)
+        {
+            string? couponError;
+            (couponDiscount, couponName, couponError) = await benefits.CheckCouponAsync(userId, couponId, cart.Subtotal, ct);
+            if (couponError is not null)
+            {
+                return OrderResult.Fail(couponError);
+            }
+        }
+        if (pointsToUse < 0)
+        {
+            return OrderResult.Fail("포인트 사용액이 올바르지 않습니다.");
+        }
+        var balance = await benefits.GetBalanceAsync(userId, ct);
+        if (pointsToUse > PriceCalculator.MaxUsablePoints(cart.Subtotal, couponDiscount, balance))
+        {
+            return OrderResult.Fail("쓸 수 있는 포인트보다 많이 입력했습니다.");
+        }
+
+        var price = new PriceBreakdown(cart.Subtotal, cart.ShippingFee, couponDiscount, pointsToUse);
+        if (price.Total != expectedTotal)
         {
             return OrderResult.Fail("주문하는 사이 가격이 바뀌었습니다. 금액을 다시 확인해 주세요.");
         }
@@ -107,9 +188,13 @@ public class OrderService(ApplicationDbContext db, CartService carts, TimeProvid
             {
                 OrderNumber = NewOrderNumber(),
                 UserId = userId,
-                Subtotal = cart.Subtotal,
-                ShippingFee = cart.ShippingFee,
-                Total = cart.Total,
+                Subtotal = price.Subtotal,
+                ShippingFee = price.ShippingFee,
+                CouponDiscount = price.CouponDiscount,
+                UserCouponId = userCouponId,
+                CouponName = couponName,
+                PointsUsed = price.PointsUsed,
+                Total = price.Total,
                 Shipping = shipping,
                 CreatedAt = clock.GetUtcNow().UtcDateTime,
             };
@@ -133,6 +218,21 @@ public class OrderService(ApplicationDbContext db, CartService carts, TimeProvid
             }
             db.Orders.Add(order);
             await db.SaveChangesAsync(ct);
+
+            // 쿠폰·포인트는 주문 Id가 생긴 뒤 사용 처리한다. 하나라도 실패하면(동시에 다른 주문에 썼으면) 전부 되돌린다
+            if (userCouponId is { } usedCouponId && !await benefits.MarkCouponUsedAsync(usedCouponId, order.Id, ct))
+            {
+                await tx.RollbackAsync(ct);
+                db.ChangeTracker.Clear();
+                return OrderResult.Fail("이미 사용한 쿠폰입니다.");
+            }
+            if (!await benefits.ChangePointsAsync(userId, -price.PointsUsed, PointType.Use,
+                    $"주문 {order.OrderNumber} 결제에 사용", order.Id, ct))
+            {
+                await tx.RollbackAsync(ct);
+                db.ChangeTracker.Clear();
+                return OrderResult.Fail("포인트 잔액이 부족합니다.");
+            }
 
             // 주문한 상품만 장바구니에서 뺀다.
             // ExecuteDelete는 변경 추적을 거치지 않아, 같은 DbContext에 남은 장바구니 객체가 낡은 상태가 되므로 추적을 통해 지운다
@@ -303,17 +403,43 @@ public class OrderService(ApplicationDbContext db, CartService carts, TimeProvid
     }
 
     /// <summary>발송 → 배송 완료</summary>
+    /// <summary>발송 → 배송 완료. 이때 구매 포인트를 적립한다 (배송 완료 뒤에는 취소가 없어 적립을 되돌릴 일이 없다).</summary>
     public async Task<OrderResult> MarkDeliveredAsync(string orderNumber, CancellationToken ct = default)
     {
-        var now = clock.GetUtcNow().UtcDateTime;
-        var updated = await db.Orders
-            .Where(o => o.OrderNumber == orderNumber && o.Status == OrderStatus.Shipped)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(o => o.Status, OrderStatus.Delivered)
-                .SetProperty(o => o.DeliveredAt, now), ct);
-        return updated == 1
-            ? OrderResult.Ok("배송 완료로 바꿨습니다.", orderNumber)
-            : OrderResult.Fail("배송중인 주문만 배송 완료로 바꿀 수 있습니다.");
+        var strategy = db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var tx = await db.Database.BeginTransactionAsync(ct);
+            var now = clock.GetUtcNow().UtcDateTime;
+            var updated = await db.Orders
+                .Where(o => o.OrderNumber == orderNumber && o.Status == OrderStatus.Shipped)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(o => o.Status, OrderStatus.Delivered)
+                    .SetProperty(o => o.DeliveredAt, now), ct);
+            if (updated == 0)
+            {
+                await tx.RollbackAsync(ct);
+                return OrderResult.Fail("배송중인 주문만 배송 완료로 바꿀 수 있습니다.");
+            }
+
+            var order = await db.Orders
+                .Where(o => o.OrderNumber == orderNumber)
+                .Select(o => new { o.Id, o.UserId, o.Subtotal, o.ShippingFee, o.CouponDiscount, o.PointsUsed })
+                .SingleAsync(ct);
+            var earned = PriceCalculator.EarnedPoints(
+                new PriceBreakdown(order.Subtotal, order.ShippingFee, order.CouponDiscount, order.PointsUsed).EarnBase,
+                options.Value.PointEarnRate);
+            if (earned > 0)
+            {
+                await db.Orders.Where(o => o.Id == order.Id)
+                    .ExecuteUpdateAsync(s => s.SetProperty(o => o.PointsEarned, earned), ct);
+                await benefits.ChangePointsAsync(order.UserId, earned, PointType.Earn,
+                    $"주문 {orderNumber} 구매 적립", order.Id, ct);
+            }
+
+            await tx.CommitAsync(ct);
+            return OrderResult.Ok(earned > 0 ? $"배송 완료로 바꾸고 {earned:N0}P를 적립했습니다." : "배송 완료로 바꿨습니다.", orderNumber);
+        });
     }
 
     /// <summary>관리자 취소 (발송 전까지, 재고 복구)</summary>
@@ -400,6 +526,18 @@ public class OrderService(ApplicationDbContext db, CartService carts, TimeProvid
                 await db.ProductVariants
                     .Where(v => v.Id == item.VariantId)
                     .ExecuteUpdateAsync(s => s.SetProperty(v => v.Stock, v => v.Stock + item.Quantity), ct);
+            }
+
+            // 쓴 쿠폰은 다시 쓸 수 있게, 쓴 포인트는 돌려준다
+            var paidWith = await db.Orders
+                .Where(o => o.Id == orderId)
+                .Select(o => new { o.UserId, o.PointsUsed })
+                .SingleAsync(ct);
+            await benefits.RestoreCouponAsync(orderId!.Value, ct);
+            if (paidWith.PointsUsed > 0)
+            {
+                await benefits.ChangePointsAsync(paidWith.UserId, paidWith.PointsUsed, PointType.Refund,
+                    $"주문 {orderNumber} 취소로 반환", orderId, ct);
             }
 
             await tx.CommitAsync(ct);

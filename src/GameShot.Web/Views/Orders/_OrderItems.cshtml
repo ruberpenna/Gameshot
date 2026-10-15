@@ -32,6 +32,21 @@
     <dd class="col-6 text-end">@Model.Subtotal.ToString("N0")원</dd>
     <dt class="col-6 fw-normal">배송비</dt>
     <dd class="col-6 text-end">@(Model.ShippingFee == 0 ? "무료" : Model.ShippingFee.ToString("N0") + "원")</dd>
+    @if (Model.CouponDiscount > 0)
+    {
+        <dt class="col-6 fw-normal">쿠폰 할인 <span class="text-muted">(@Model.CouponName)</span></dt>
+        <dd class="col-6 text-end text-danger">-@Model.CouponDiscount.ToString("N0")원</dd>
+    }
+    @if (Model.PointsUsed > 0)
+    {
+        <dt class="col-6 fw-normal">포인트 사용</dt>
+        <dd class="col-6 text-end text-danger">-@Model.PointsUsed.ToString("N0")원</dd>
+    }
     <dt class="col-6">총 결제 금액</dt>
     <dd class="col-6 text-end fw-bold">@Model.Total.ToString("N0")원</dd>
+    @if (Model.PointsEarned > 0)
+    {
+        <dt class="col-6 fw-normal text-muted">적립 포인트</dt>
+        <dd class="col-6 text-end text-primary">+@Model.PointsEarned.ToString("N0")P</dd>
+    }
 </dl>

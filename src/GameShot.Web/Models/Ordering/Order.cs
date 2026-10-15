@@ -38,6 +38,23 @@ public class Order
 
     public int Subtotal { get; set; }
     public int ShippingFee { get; set; }
+
+    /// <summary>쿠폰 할인액</summary>
+    public int CouponDiscount { get; set; }
+
+    /// <summary>사용한 쿠폰 (취소하면 되돌려 준다)</summary>
+    public int? UserCouponId { get; set; }
+
+    /// <summary>주문 시점의 쿠폰 이름</summary>
+    public string? CouponName { get; set; }
+
+    /// <summary>사용한 포인트</summary>
+    public int PointsUsed { get; set; }
+
+    /// <summary>배송 완료 때 적립한 포인트</summary>
+    public int PointsEarned { get; set; }
+
+    /// <summary>실제 결제 금액 = 상품 금액 + 배송비 - 쿠폰 할인 - 포인트</summary>
     public int Total { get; set; }
 
     public required ShippingInfo Shipping { get; set; }

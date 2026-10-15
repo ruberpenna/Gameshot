@@ -1,0 +1,51 @@
+@using GameShot.Web.Services
+@model List<WalletCoupon>
+@{
+    ViewData["Title"] = "쿠폰";
+}
+
+<h1 class="h4 mb-3">마이페이지</h1>
+<partial name="_MyNav" />
+
+<form method="post" asp-action="RegisterCoupon" class="d-flex gap-2 mb-4" style="max-width: 28rem">
+    <input name="code" class="form-control text-uppercase" placeholder="쿠폰 코드 입력" maxlength="30" required autocomplete="off" />
+    <button type="submit" class="btn btn-dark text-nowrap">등록</button>
+</form>
+
+@if (Model.Count == 0)
+{
+    <p class="text-muted py-4">받은 쿠폰이 없습니다.</p>
+    return;
+}
+
+<div class="row row-cols-1 row-cols-md-2 g-3">
+    @foreach (var c in Model)
+    {
+        <div class="col">
+            <div class="card h-100 coupon-card @(c.IsUsableNow ? "" : "coupon-card-off")">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div class="fs-5 fw-bold text-danger">@c.DiscountText</div>
+                        @if (c.UsedAt is not null)
+                        {
+                            <span class="badge text-bg-secondary align-self-start">사용함</span>
+                        }
+                        else if (!c.IsUsableNow)
+                        {
+                            <span class="badge text-bg-light align-self-start">사용 불가</span>
+                        }
+                    </div>
+                    <div class="fw-semibold">@c.Name</div>
+                    <div class="small text-muted mt-2">
+                        @(c.MinOrderAmount > 0 ? $"{c.MinOrderAmount:N0}원 이상 주문 시" : "최소 주문 금액 없음")
+                        · @(c.EndsAt is { } end ? $"{KoreanTime.FromUtc(end):yyyy.MM.dd HH:mm}까지" : "기한 없음")
+                    </div>
+                    @if (c.UsedAt is { } used)
+                    {
+                        <div class="small text-muted">@KoreanTime.FromUtc(used).ToString("yyyy.MM.dd") 사용</div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>

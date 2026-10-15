@@ -1,4 +1,5 @@
 using GameShot.Web.Models;
+using GameShot.Web.Models.Benefits;
 using GameShot.Web.Models.Catalog;
 using GameShot.Web.Models.Ordering;
 using GameShot.Web.Models.Shopping;
@@ -19,6 +20,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<CartItem> CartItems => Set<CartItem>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
+    public DbSet<Coupon> Coupons => Set<Coupon>();
+    public DbSet<UserCoupon> UserCoupons => Set<UserCoupon>();
+    public DbSet<PointTransaction> PointTransactions => Set<PointTransaction>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -27,6 +31,35 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         builder.Entity<ApplicationUser>(e =>
         {
             e.Property(u => u.Nickname).HasMaxLength(30);
+            e.ToTable(t => t.HasCheckConstraint("CK_AspNetUsers_PointBalance", "[PointBalance] >= 0"));
+        });
+
+        builder.Entity<Coupon>(e =>
+        {
+            e.Property(c => c.Code).HasMaxLength(30);
+            e.Property(c => c.Name).HasMaxLength(100);
+            e.HasIndex(c => c.Code).IsUnique();
+            e.ToTable(t =>
+            {
+                t.HasCheckConstraint("CK_Coupons_DiscountValue", "[DiscountValue] > 0");
+                t.HasCheckConstraint("CK_Coupons_Percent", "[DiscountType] <> 1 OR [DiscountValue] <= 100");
+            });
+        });
+
+        builder.Entity<UserCoupon>(e =>
+        {
+            // 쿠폰 하나는 회원당 한 장
+            e.HasIndex(u => new { u.CouponId, u.UserId }).IsUnique();
+            e.HasIndex(u => new { u.UserId, u.UsedAt });
+            e.HasOne(u => u.Coupon).WithMany(c => c.Issued).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(u => u.User).WithMany().OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<PointTransaction>(e =>
+        {
+            e.Property(p => p.Description).HasMaxLength(200);
+            e.HasIndex(p => new { p.UserId, p.CreatedAt });
+            e.HasOne(p => p.User).WithMany().OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<Platform>(e =>
@@ -102,6 +135,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             e.Property(o => o.PaymentMethod).HasMaxLength(30);
             e.Property(o => o.Courier).HasMaxLength(30);
             e.Property(o => o.CancelReason).HasMaxLength(50);
+            e.Property(o => o.CouponName).HasMaxLength(100);
             e.Property(o => o.TrackingNumber).HasMaxLength(30);
             e.HasIndex(o => new { o.Status, o.CreatedAt });
             // 회원을 지워도 주문 기록은 남겨야 하므로 연쇄 삭제하지 않는다

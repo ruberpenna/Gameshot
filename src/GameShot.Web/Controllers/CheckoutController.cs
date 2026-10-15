@@ -11,7 +11,6 @@ namespace GameShot.Web.Controllers;
 [Route("checkout")]
 [AutoValidateAntiforgeryToken]
 public class CheckoutController(
-    CartService carts,
     CartContext cartContext,
     OrderService orders,
     UserManager<ApplicationUser> users) : Controller
@@ -19,18 +18,39 @@ public class CheckoutController(
     [HttpGet("")]
     public async Task<IActionResult> Index(CancellationToken ct)
     {
-        var cart = await carts.GetViewAsync(await cartContext.GetOwnerAsync(ct), ct);
-        if (!cart.CanCheckout)
+        // 로그인 직후라면 비회원 장바구니를 여기서 합친다
+        await cartContext.GetOwnerAsync(ct);
+        var quote = await orders.QuoteAsync(UserId, null, 0, ct);
+        if (!quote.Cart.CanCheckout)
         {
-            TempData["FlashError"] = cart.Lines.Count == 0
+            TempData["FlashError"] = quote.Cart.Lines.Count == 0
                 ? "장바구니가 비어 있습니다."
                 : "주문할 수 없는 상품이 있습니다. 장바구니를 확인해 주세요.";
             return RedirectToAction("Index", "Cart");
         }
 
         var form = CheckoutForm.From(await orders.GetLastShippingAsync(UserId, ct));
-        form.ExpectedTotal = cart.Total;
-        return View(new CheckoutViewModel { Form = form, Cart = cart });
+        form.ExpectedTotal = quote.Price.Total;
+        return View(new CheckoutViewModel { Form = form, Quote = quote });
+    }
+
+    /// <summary>쿠폰·포인트를 바꿀 때 주문서가 부르는 금액 계산 (JSON)</summary>
+    [HttpGet("quote")]
+    public async Task<IActionResult> Quote(int? userCouponId, int points, CancellationToken ct)
+    {
+        var q = await orders.QuoteAsync(UserId, userCouponId, points, ct);
+        return Json(new
+        {
+            subtotal = q.Price.Subtotal,
+            shippingFee = q.Price.ShippingFee,
+            couponDiscount = q.Price.CouponDiscount,
+            pointsUsed = q.Price.PointsUsed,
+            total = q.Price.Total,
+            maxPoints = q.MaxUsablePoints,
+            userCouponId = q.AppliedUserCouponId,
+            earnPoints = q.ExpectedEarnPoints,
+            error = q.Error,
+        });
     }
 
     [HttpPost("")]
@@ -41,7 +61,8 @@ public class CheckoutController(
             return await Redisplay(form, ct);
         }
 
-        var result = await orders.PlaceOrderAsync(UserId, form.ToShippingInfo(), form.ExpectedTotal, ct);
+        var result = await orders.PlaceOrderAsync(UserId, form.ToShippingInfo(), form.ExpectedTotal,
+            form.UserCouponId, form.PointsToUse, ct);
         if (!result.Success)
         {
             // 입력한 배송지는 유지하고, 바뀐 금액으로 다시 보여준다
@@ -56,8 +77,8 @@ public class CheckoutController(
 
     private async Task<IActionResult> Redisplay(CheckoutForm form, CancellationToken ct)
     {
-        var cart = await carts.GetViewAsync(await cartContext.GetOwnerAsync(ct), ct);
-        if (!cart.CanCheckout)
+        var quote = await orders.QuoteAsync(UserId, form.UserCouponId, form.PointsToUse, ct);
+        if (!quote.Cart.CanCheckout)
         {
             TempData["FlashError"] = ModelState[""]?.Errors.FirstOrDefault()?.ErrorMessage
                 ?? "주문할 수 없는 상품이 있습니다. 장바구니를 확인해 주세요.";
@@ -65,8 +86,13 @@ public class CheckoutController(
         }
 
         // 화면에는 지금 금액을 보여줘야 하므로 제출된 값 대신 새로 계산한 값을 쓴다
-        ModelState.Remove("Form.ExpectedTotal");
-        form.ExpectedTotal = cart.Total;
-        return View(new CheckoutViewModel { Form = form, Cart = cart });
+        foreach (var key in new[] { "Form.ExpectedTotal", "Form.UserCouponId", "Form.PointsToUse" })
+        {
+            ModelState.Remove(key);
+        }
+        form.ExpectedTotal = quote.Price.Total;
+        form.UserCouponId = quote.AppliedUserCouponId;
+        form.PointsToUse = quote.Price.PointsUsed;
+        return View(new CheckoutViewModel { Form = form, Quote = quote });
     }
 }

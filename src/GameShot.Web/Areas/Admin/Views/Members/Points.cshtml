@@ -1,0 +1,62 @@
+@using GameShot.Web.Models.Benefits
+@model List<PointTransaction>
+@{
+    var member = (AdminMemberRow)ViewData["Member"]!;
+    ViewData["Title"] = $"포인트 - {member.Email}";
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb small">
+        <li class="breadcrumb-item"><a asp-action="Index">회원</a></li>
+        <li class="breadcrumb-item active" aria-current="page">@member.Email</li>
+    </ol>
+</nav>
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="small text-muted">@member.Email</div>
+                <div class="display-6 fw-bold">@member.PointBalance.ToString("N0")P</div>
+                <div class="small text-muted">주문 @(member.OrderCount)건 · 가입 @KoreanTime.FromUtc(member.CreatedAt).ToString("yyyy.MM.dd")</div>
+            </div>
+        </div>
+        <form method="post" asp-action="AdjustPoints" asp-route-id="@member.Id" class="card"
+              onsubmit="return confirm('포인트를 ' + this.amount.value + 'P 조정할까요?')">
+            <div class="card-header bg-white"><strong>지급 · 차감</strong></div>
+            <div class="card-body vstack gap-2">
+                <input name="amount" type="number" class="form-control" placeholder="지급은 양수, 차감은 음수 (예: -1000)" required />
+                <input name="reason" class="form-control" maxlength="100" placeholder="사유 (예: 이벤트 당첨)" />
+                <button type="submit" class="btn btn-dark">적용</button>
+            </div>
+        </form>
+    </div>
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-white"><strong>포인트 내역</strong> <span class="small text-muted">(최근 100건)</span></div>
+            <div class="table-responsive">
+                <table class="table admin-table mb-0 small">
+                    <thead class="table-light">
+                        <tr><th>일시</th><th>구분</th><th>내용</th><th class="num">변동</th><th class="num">잔액</th></tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.Count == 0)
+                        {
+                            <tr><td colspan="5" class="text-muted p-3">내역이 없습니다.</td></tr>
+                        }
+                        @foreach (var p in Model)
+                        {
+                            <tr>
+                                <td>@KoreanTime.FromUtc(p.CreatedAt).ToString("yyyy.MM.dd HH:mm")</td>
+                                <td>@p.Type</td>
+                                <td>@p.Description</td>
+                                <td class="num @(p.Amount > 0 ? "text-primary" : "text-danger")">@(p.Amount > 0 ? "+" : "")@p.Amount.ToString("N0")</td>
+                                <td class="num">@p.BalanceAfter.ToString("N0")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
