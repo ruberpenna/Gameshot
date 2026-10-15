@@ -30,6 +30,11 @@
                             <a class="nav-link text-dark" asp-area="" asp-controller="Products" asp-action="Index" asp-route-Platform="switch2">Switch 2</a>
                         </li>
                     </ul>
+                    <ul class="navbar-nav">
+                        <li class="nav-item">
+                            <vc:cart-badge />
+                        </li>
+                    </ul>
                     <partial name="_LoginPartial" />
                 </div>
             </div>
@@ -37,6 +42,7 @@
     </header>
     <div class="container">
         <main role="main" class="pb-3">
+            <partial name="_Flash" />
             @RenderBody()
         </main>
     </div>

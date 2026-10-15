@@ -1,0 +1,19 @@
+@* 리다이렉트 후 한 번만 보여주는 알림 (TempData) *@
+@if (TempData["FlashSuccess"] is string success)
+{
+    <div class="alert alert-success alert-dismissible fade show d-flex align-items-center gap-3" role="alert">
+        <span>@success</span>
+        @if (ViewContext.RouteData.Values["controller"] as string != "Cart")
+        {
+            <a class="alert-link" asp-controller="Cart" asp-action="Index">장바구니 보기</a>
+        }
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="닫기"></button>
+    </div>
+}
+@if (TempData["FlashError"] is string error)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @error
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="닫기"></button>
+    </div>
+}

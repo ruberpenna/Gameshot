@@ -1,0 +1,120 @@
+@using GameShot.Web.Models.Catalog
+@using GameShot.Web.Services
+@model CartView
+@{
+    ViewData["Title"] = "장바구니";
+}
+
+<h1 class="h4 mb-4">장바구니</h1>
+
+@if (Model.Lines.Count == 0)
+{
+    <div class="text-center py-5">
+        <p class="text-muted mb-3">장바구니가 비어 있습니다.</p>
+        <a class="btn btn-dark" asp-controller="Products" asp-action="Index">상품 보러 가기</a>
+    </div>
+    return;
+}
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <ul class="list-group">
+            @foreach (var line in Model.Lines)
+            {
+                <li class="list-group-item cart-line @(line.IsOrderable ? "" : "cart-line-problem")">
+                    <div class="d-flex gap-3">
+                        <a asp-controller="Products" asp-action="Details" asp-route-slug="@line.ProductSlug" class="cart-thumb flex-shrink-0">
+                            @if (line.ThumbnailPath is not null)
+                            {
+                                <img src="@line.ThumbnailPath" alt="@line.ProductTitle" />
+                            }
+                        </a>
+                        <div class="flex-grow-1 min-w-0">
+                            <a class="fw-semibold text-body text-decoration-none" asp-controller="Products" asp-action="Details" asp-route-slug="@line.ProductSlug">@line.ProductTitle</a>
+                            <div class="small text-muted">
+                                @line.PlatformName · @line.Edition · @line.Language
+                                @if (line.Condition == ItemCondition.Used)
+                                {
+                                    <span class="badge text-bg-warning ms-1">중고</span>
+                                }
+                            </div>
+                            @switch (line.Status)
+                            {
+                                case CartLineStatus.Unavailable:
+                                    <div class="small text-danger mt-1">판매가 중지된 상품입니다. 빼고 주문해 주세요.</div>
+                                    break;
+                                case CartLineStatus.SoldOut:
+                                    <div class="small text-danger mt-1">품절되었습니다.</div>
+                                    break;
+                                case CartLineStatus.InsufficientStock:
+                                    <div class="small text-danger mt-1">재고가 @(line.Stock)개 남았습니다. 수량을 줄여 주세요.</div>
+                                    break;
+                            }
+
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-2">
+                                <div class="d-flex gap-2">
+                                    @if (line.Status is not (CartLineStatus.Unavailable or CartLineStatus.SoldOut))
+                                    {
+                                        <form method="post" asp-action="Update" asp-route-itemId="@line.ItemId" class="d-flex gap-1">
+                                            <select name="quantity" class="form-select form-select-sm w-auto" aria-label="수량" onchange="this.form.requestSubmit()">
+                                                @for (var q = 1; q <= CartService.MaxQuantityPerItem; q++)
+                                                {
+                                                    <option value="@q" selected="@(q == line.Quantity)" disabled="@(q > line.Stock && q != line.Quantity)">@(q)개</option>
+                                                }
+                                            </select>
+                                            <noscript><button type="submit" class="btn btn-sm btn-outline-secondary">변경</button></noscript>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <span class="small text-muted">@(line.Quantity)개</span>
+                                    }
+                                    <form method="post" asp-action="Remove" asp-route-itemId="@line.ItemId">
+                                        <button type="submit" class="btn btn-sm btn-link text-muted p-0 ms-2">삭제</button>
+                                    </form>
+                                </div>
+                                <div class="text-end">
+                                    @if (line.ListPrice > line.UnitPrice)
+                                    {
+                                        <span class="text-muted text-decoration-line-through small me-1">@((line.ListPrice * line.Quantity).ToString("N0"))원</span>
+                                    }
+                                    <strong class="@(line.IsOrderable ? "" : "text-muted text-decoration-line-through")">@line.LineTotal.ToString("N0")원</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </li>
+            }
+        </ul>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card cart-summary">
+            <div class="card-body">
+                <h2 class="h6 mb-3">결제 예정 금액</h2>
+                <dl class="row mb-0 small">
+                    <dt class="col-6 fw-normal">상품 금액</dt>
+                    <dd class="col-6 text-end">@Model.Subtotal.ToString("N0")원</dd>
+                    <dt class="col-6 fw-normal">배송비</dt>
+                    <dd class="col-6 text-end">@(Model.ShippingFee == 0 ? "무료" : Model.ShippingFee.ToString("N0") + "원")</dd>
+                </dl>
+                @if (Model.Subtotal > 0 && Model.ShippingFee > 0)
+                {
+                    <p class="small text-primary mb-0">@((CartService.FreeShippingThreshold - Model.Subtotal).ToString("N0"))원 더 담으면 무료배송</p>
+                }
+                <hr />
+                <div class="d-flex justify-content-between align-items-baseline">
+                    <span>합계</span>
+                    <strong class="fs-4">@Model.Total.ToString("N0")원</strong>
+                </div>
+                <button type="button" class="btn btn-dark w-100 mt-3" disabled>
+                    주문하기 (다음 단계)
+                </button>
+                @if (Model.HasProblems)
+                {
+                    <p class="small text-danger mt-2 mb-0">주문할 수 없는 상품이 있습니다. 확인 후 정리해 주세요.</p>
+                }
+            </div>
+        </div>
+    </div>
+</div>

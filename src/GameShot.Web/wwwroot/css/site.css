@@ -96,3 +96,32 @@ body {
   object-fit: contain;
   background: #f3f4f6;
 }
+
+.cart-thumb {
+  width: 72px;
+  height: 90px;
+  background: #f3f4f6;
+  border-radius: .375rem;
+  overflow: hidden;
+}
+
+.cart-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.cart-line-problem {
+  background: #fff8f8;
+}
+
+.min-w-0 {
+  min-width: 0;
+}
+
+@media (min-width: 992px) {
+  .cart-summary {
+    position: sticky;
+    top: 1rem;
+  }
+}

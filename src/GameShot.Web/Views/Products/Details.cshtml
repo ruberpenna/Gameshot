@@ -59,11 +59,16 @@
         }
         else
         {
+            var firstAvailable = p.Variants.FirstOrDefault(v => !v.IsSoldOut);
+            <form method="post" asp-controller="Cart" asp-action="Add" class="purchase-form">
+            <input type="hidden" name="returnUrl" value="@Context.Request.Path" />
             <div class="list-group">
                 @foreach (var v in p.Variants)
                 {
-                    <div class="list-group-item d-flex justify-content-between align-items-center gap-3 @(v.IsSoldOut ? "text-muted" : "")">
+                    <label class="list-group-item d-flex justify-content-between align-items-center gap-3 @(v.IsSoldOut ? "text-muted" : "")">
                         <div>
+                            <input class="form-check-input me-2" type="radio" name="variantId" value="@v.Id"
+                                   checked="@(v == firstAvailable)" disabled="@v.IsSoldOut" />
                             <span class="badge text-bg-dark me-1">@v.Platform.Name</span>
                             @v.Edition · @v.Language
                             @if (v.Condition == ItemCondition.Used)
@@ -89,10 +94,25 @@
                                 }
                             </div>
                         </div>
-                    </div>
+                    </label>
                 }
             </div>
-            <p class="small text-muted mt-2">장바구니는 다음 단계에서 붙일 예정입니다.</p>
+            <div class="d-flex gap-2 mt-3">
+                <select name="quantity" class="form-select w-auto" aria-label="수량" disabled="@(firstAvailable is null)">
+                    @for (var q = 1; q <= GameShot.Web.Services.CartService.MaxQuantityPerItem; q++)
+                    {
+                        <option value="@q">@(q)개</option>
+                    }
+                </select>
+                <button type="submit" class="btn btn-dark flex-grow-1" disabled="@(firstAvailable is null)">
+                    @(firstAvailable is null ? "품절" : "장바구니 담기")
+                </button>
+            </div>
+            </form>
+            <p class="small text-muted mt-2">
+                @GameShot.Web.Services.CartService.FreeShippingThreshold.ToString("N0")원 이상 무료배송
+                (미만 @GameShot.Web.Services.CartService.ShippingFee.ToString("N0")원)
+            </p>
         }
     </div>
 </div>

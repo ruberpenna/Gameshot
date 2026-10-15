@@ -1,5 +1,6 @@
 using GameShot.Web.Models;
 using GameShot.Web.Models.Catalog;
+using GameShot.Web.Models.Shopping;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,6 +14,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Product> Products => Set<Product>();
     public DbSet<ProductVariant> ProductVariants => Set<ProductVariant>();
     public DbSet<ProductImage> ProductImages => Set<ProductImage>();
+    public DbSet<Cart> Carts => Set<Cart>();
+    public DbSet<CartItem> CartItems => Set<CartItem>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -68,6 +71,24 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         {
             e.Property(i => i.Path).HasMaxLength(300);
             e.HasOne(i => i.Product).WithMany(p => p.Images).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<Cart>(e =>
+        {
+            e.Property(c => c.Id).ValueGeneratedNever();
+            // 회원당 장바구니 하나 (비회원 장바구니는 UserId가 null이라 제외)
+            e.HasIndex(c => c.UserId).IsUnique().HasFilter("[UserId] IS NOT NULL");
+            e.HasIndex(c => c.UpdatedAt);
+            e.HasOne(c => c.User).WithMany().OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<CartItem>(e =>
+        {
+            e.HasIndex(i => new { i.CartId, i.ProductVariantId }).IsUnique();
+            e.HasOne(i => i.Cart).WithMany(c => c.Items).OnDelete(DeleteBehavior.Cascade);
+            // 장바구니에 담긴 SKU는 지우지 말고 판매 중지(IsActive=false)로 내린다
+            e.HasOne(i => i.ProductVariant).WithMany().OnDelete(DeleteBehavior.Restrict);
+            e.ToTable(t => t.HasCheckConstraint("CK_CartItems_Quantity", "[Quantity] > 0"));
         });
     }
 }
