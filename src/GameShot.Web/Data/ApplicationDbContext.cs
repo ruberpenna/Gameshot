@@ -31,6 +31,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         builder.Entity<ApplicationUser>(e =>
         {
             e.Property(u => u.Nickname).HasMaxLength(30);
+            // 닉네임은 겹칠 수 없다 (닉네임이 없는 기존 회원은 제외)
+            e.HasIndex(u => u.Nickname).IsUnique().HasFilter("[Nickname] IS NOT NULL");
             e.ToTable(t => t.HasCheckConstraint("CK_AspNetUsers_PointBalance", "[PointBalance] >= 0"));
         });
 

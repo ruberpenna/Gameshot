@@ -1,0 +1,61 @@
+@page
+@model GameShot.Web.Areas.Identity.Pages.Account.RegisterModel
+@{
+    ViewData["Title"] = "회원가입";
+}
+
+<div class="account-box mx-auto">
+    <h1 class="h4 mb-4 text-center">회원가입</h1>
+    <form id="registerForm" method="post" asp-route-returnUrl="@Model.ReturnUrl" class="card">
+        <div class="card-body vstack gap-3">
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger mb-0" role="alert"></div>
+            <div>
+                <label asp-for="Input.Email" class="form-label"></label>
+                <input asp-for="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
+                <div class="form-text">로그인할 때 아이디로 씁니다.</div>
+                <span asp-validation-for="Input.Email" class="text-danger small"></span>
+            </div>
+            <div>
+                <label asp-for="Input.Nickname" class="form-label"></label>
+                <input asp-for="Input.Nickname" class="form-control" autocomplete="nickname" aria-required="true"
+                       maxlength="@MemberService.NicknameMaxLength" />
+                <div class="form-text">한글·영문·숫자 @(MemberService.NicknameMinLength)~@(MemberService.NicknameMaxLength)자</div>
+                <span asp-validation-for="Input.Nickname" class="text-danger small"></span>
+            </div>
+            <div>
+                <label asp-for="Input.Password" class="form-label"></label>
+                <input asp-for="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" />
+                <div class="form-text">8자 이상, 영문 소문자와 숫자를 포함하세요.</div>
+                <span asp-validation-for="Input.Password" class="text-danger small"></span>
+            </div>
+            <div>
+                <label asp-for="Input.ConfirmPassword" class="form-label"></label>
+                <input asp-for="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" />
+                <span asp-validation-for="Input.ConfirmPassword" class="text-danger small"></span>
+            </div>
+            <div class="form-check">
+                <input asp-for="Input.AgreeTerms" class="form-check-input" />
+                <label asp-for="Input.AgreeTerms" class="form-check-label small"></label>
+                <div class="small text-muted">연습용 쇼핑몰이라 실제 상품은 배송되지 않고 결제도 가상입니다.</div>
+                <span asp-validation-for="Input.AgreeTerms" class="text-danger small d-block"></span>
+            </div>
+            <button id="registerSubmit" type="submit" class="btn btn-dark w-100">가입하기</button>
+        </div>
+    </form>
+    <p class="text-center small mt-3">이미 회원이신가요? <a asp-page="./Login" asp-route-returnUrl="@Model.ReturnUrl">로그인</a></p>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        // 체크박스 [Range(true)]는 클라이언트 검증이 체크 여부를 못 봐서 직접 맞춘다
+        $.validator.addMethod('mustbetrue', (v, el) => el.checked);
+        $.validator.unobtrusive.adapters.addBool('mustbetrue');
+        const agree = document.getElementById('Input_AgreeTerms');
+        agree.setAttribute('data-val-mustbetrue', '약관에 동의해야 가입할 수 있습니다.');
+        agree.removeAttribute('data-val-range');
+        const form = $('#registerForm');
+        form.removeData('validator').removeData('unobtrusiveValidation');
+        $.validator.unobtrusive.parse(form);
+    </script>
+}

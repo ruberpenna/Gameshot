@@ -1,0 +1,37 @@
+@page
+@model GameShot.Web.Areas.Identity.Pages.Account.LoginModel
+@{
+    ViewData["Title"] = "로그인";
+}
+
+<div class="account-box mx-auto">
+    <h1 class="h4 mb-4 text-center">로그인</h1>
+    <form id="account" method="post" asp-route-returnUrl="@Model.ReturnUrl" class="card">
+        <div class="card-body vstack gap-3">
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger mb-0" role="alert"></div>
+            <div>
+                <label asp-for="Input.Email" class="form-label"></label>
+                <input asp-for="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
+                <span asp-validation-for="Input.Email" class="text-danger small"></span>
+            </div>
+            <div>
+                <label asp-for="Input.Password" class="form-label"></label>
+                <input asp-for="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" />
+                <span asp-validation-for="Input.Password" class="text-danger small"></span>
+            </div>
+            <div class="form-check">
+                <input asp-for="Input.RememberMe" class="form-check-input" />
+                <label asp-for="Input.RememberMe" class="form-check-label"></label>
+            </div>
+            <button id="login-submit" type="submit" class="btn btn-dark w-100">로그인</button>
+        </div>
+    </form>
+    <div class="text-center small mt-3 vstack gap-1">
+        <span>아직 회원이 아니신가요? <a asp-page="./Register" asp-route-returnUrl="@Model.ReturnUrl">회원가입</a></span>
+        <span class="text-muted">비밀번호를 잊었다면 관리자에게 문의하세요. (메일 발송 준비 중)</span>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,37 @@
+@page
+@model GameShot.Web.Areas.Identity.Pages.Account.Manage.IndexModel
+@{
+    ViewData["Title"] = "프로필";
+}
+
+<partial name="_ManageNav" />
+
+<form id="profile-form" method="post" class="card" style="max-width: 32rem">
+    <div class="card-body vstack gap-3">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger mb-0" role="alert"></div>
+        <div>
+            <label class="form-label" for="email">이메일 (아이디)</label>
+            <input id="email" class="form-control" value="@Model.Email" disabled />
+            <div class="form-text">
+                가입일 @GameShot.Web.Services.KoreanTime.FromUtc(Model.JoinedAt).ToString("yyyy.MM.dd") ·
+                이메일 변경은 메일 인증을 붙인 뒤 지원합니다.
+            </div>
+        </div>
+        <div>
+            <label asp-for="Input.Nickname" class="form-label"></label>
+            <input asp-for="Input.Nickname" class="form-control" maxlength="@MemberService.NicknameMaxLength" />
+            <div class="form-text">한글·영문·숫자 @(MemberService.NicknameMinLength)~@(MemberService.NicknameMaxLength)자</div>
+            <span asp-validation-for="Input.Nickname" class="text-danger small"></span>
+        </div>
+        <div>
+            <label asp-for="Input.PhoneNumber" class="form-label"></label>
+            <input asp-for="Input.PhoneNumber" class="form-control" type="tel" inputmode="tel" placeholder="010-1234-5678" />
+            <span asp-validation-for="Input.PhoneNumber" class="text-danger small"></span>
+        </div>
+        <button id="update-profile-button" type="submit" class="btn btn-dark">저장</button>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

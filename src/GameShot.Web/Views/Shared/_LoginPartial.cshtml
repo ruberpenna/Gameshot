@@ -16,7 +16,7 @@
         <a class="nav-link text-dark" asp-area="" asp-controller="Orders" asp-action="Index">마이페이지</a>
     </li>
     <li class="nav-item">
-        <a  class="nav-link text-dark" asp-area="Identity" asp-page="/Account/Manage/Index" title="내 정보">@User.Identity?.Name 님</a>
+        <a  class="nav-link text-dark" asp-area="Identity" asp-page="/Account/Manage/Index" title="내 정보">@GameShot.Web.Services.Identity.ClaimsPrincipalExtensions.DisplayName(User) 님</a>
     </li>
     <li class="nav-item">
         <form  class="form-inline" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })">

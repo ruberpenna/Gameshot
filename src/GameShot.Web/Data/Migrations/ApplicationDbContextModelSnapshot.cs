@@ -87,6 +87,10 @@ namespace GameShot.Web.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Nickname")
+                        .IsUnique()
+                        .HasFilter("[Nickname] IS NOT NULL");
+
                     b.HasIndex("NormalizedEmail")
                         .HasDatabaseName("EmailIndex");
 

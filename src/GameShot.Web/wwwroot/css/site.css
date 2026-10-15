@@ -139,3 +139,8 @@ body {
   opacity: .55;
   border-left-color: #adb5bd;
 }
+
+.account-box {
+  max-width: 26rem;
+  padding-top: 1rem;
+}

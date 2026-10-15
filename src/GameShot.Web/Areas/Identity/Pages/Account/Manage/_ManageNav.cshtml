@@ -1,0 +1,10 @@
+@{
+    var page = ViewContext.RouteData.Values["page"] as string;
+    string Active(string name) => page?.EndsWith("/" + name) == true ? "active" : "";
+}
+<h1 class="h4 mb-3">내 정보</h1>
+<ul class="nav nav-pills platform-tabs mb-4">
+    <li class="nav-item"><a class="nav-link @Active("Index")" asp-page="./Index">프로필</a></li>
+    <li class="nav-item"><a class="nav-link @Active("ChangePassword")" asp-page="./ChangePassword">비밀번호 변경</a></li>
+    <li class="nav-item"><a class="nav-link" asp-area="" asp-controller="Orders" asp-action="Index">주문 내역</a></li>
+</ul>

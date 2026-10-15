@@ -1,7 +1,11 @@
 using System.Globalization;
+using System.Text.Encodings.Web;
+using System.Text.Unicode;
+using Microsoft.Extensions.WebEncoders;
 using GameShot.Web.Data;
 using GameShot.Web.Models;
 using GameShot.Web.Services;
+using GameShot.Web.Services.Identity;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -16,11 +20,29 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString, sql => sql.UseCompatibilityLevel(150)));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
-// 메일 발송을 붙이기 전까지는 이메일 인증 없이 가입
-builder.Services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = false)
+builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
+    {
+        // 메일 발송을 붙이기 전까지는 이메일 인증 없이 가입
+        options.SignIn.RequireConfirmedAccount = false;
+        options.User.RequireUniqueEmail = true;
+        // 8자 이상, 영문 소문자와 숫자 포함
+        options.Password.RequiredLength = 8;
+        options.Password.RequireDigit = true;
+        options.Password.RequireLowercase = true;
+        options.Password.RequireUppercase = false;
+        options.Password.RequireNonAlphanumeric = false;
+        // 5번 틀리면 10분 잠금
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(10);
+    })
     .AddRoles<IdentityRole>()
-    .AddEntityFrameworkStores<ApplicationDbContext>();
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddErrorDescriber<KoreanIdentityErrorDescriber>()
+    .AddClaimsPrincipalFactory<GameShotClaimsFactory>();
+builder.Services.AddScoped<MemberService>();
 builder.Services.AddControllersWithViews();
+// 한글을 &#xAC00; 같은 엔티티로 바꾸지 않고 그대로 출력 (HTML 특수문자는 계속 이스케이프된다)
+builder.Services.Configure<WebEncoderOptions>(o => o.TextEncoderSettings = new TextEncoderSettings(UnicodeRanges.All));
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.Configure<ShopOptions>(builder.Configuration.GetSection(ShopOptions.Section));
@@ -66,6 +88,7 @@ else
 }
 
 app.UseHttpsRedirection();
+app.BlockUnsupportedIdentityPages();
 app.UseRouting();
 
 app.UseAuthorization();
