@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using GameShot.Web.Data;
 using GameShot.Web.Models.Ordering;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace GameShot.Web.Services;
 
@@ -43,8 +44,18 @@ public record OrderSummary(
 /// 주문서를 제출하면 그 자리에서 재고를 잡고(PendingPayment), 결제 실패·취소 때 되돌린다.
 /// 결제는 가상 결제라 실제 PG 연동 없이 성공/실패만 고른다.
 /// </summary>
-public class OrderService(ApplicationDbContext db, CartService carts, TimeProvider clock)
+public class OrderService(ApplicationDbContext db, CartService carts, TimeProvider clock, IOptions<ShopOptions> options)
 {
+    public const string ReasonCustomer = "고객 취소";
+    public const string ReasonPaymentFailed = "결제 실패";
+    public const string ReasonPaymentTimeout = "결제 시간 초과";
+    public const string ReasonAdmin = "관리자 취소";
+
+    private TimeSpan PaymentTimeout => options.Value.PaymentTimeout;
+
+    /// <summary>이 시각까지 결제하지 않으면 주문이 자동 취소된다 (UTC)</summary>
+    public DateTime PaymentDeadline(Order order) => order.CreatedAt + PaymentTimeout;
+
     public static string StatusText(OrderStatus status) => status switch
     {
         OrderStatus.PendingPayment => "결제 대기",
@@ -141,25 +152,64 @@ public class OrderService(ApplicationDbContext db, CartService carts, TimeProvid
     public async Task<OrderResult> CompletePaymentAsync(string userId, string orderNumber, CancellationToken ct = default)
     {
         var now = clock.GetUtcNow().UtcDateTime;
-        // 상태 조건을 걸고 한 번에 바꿔서, 두 번 눌러도 한 번만 처리되게 한다
+        var cutoff = now - PaymentTimeout;
+        // 상태·기한 조건을 걸고 한 번에 바꿔서, 두 번 눌러도 한 번만, 기한이 지나면 아예 처리되지 않게 한다
         var updated = await db.Orders
-            .Where(o => o.UserId == userId && o.OrderNumber == orderNumber && o.Status == OrderStatus.PendingPayment)
+            .Where(o => o.UserId == userId && o.OrderNumber == orderNumber
+                && o.Status == OrderStatus.PendingPayment && o.CreatedAt >= cutoff)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(o => o.Status, OrderStatus.Paid)
                 .SetProperty(o => o.PaidAt, now), ct);
+        if (updated == 1)
+        {
+            return OrderResult.Ok("결제가 완료되었습니다.", orderNumber);
+        }
 
-        return updated == 1
-            ? OrderResult.Ok("결제가 완료되었습니다.", orderNumber)
-            : OrderResult.Fail("결제할 수 있는 주문이 아닙니다.");
+        // 기한이 지났는데 아직 정리 작업이 돌지 않은 주문이면 지금 취소한다
+        var expired = await db.Orders.AnyAsync(o => o.UserId == userId && o.OrderNumber == orderNumber
+            && o.Status == OrderStatus.PendingPayment && o.CreatedAt < cutoff, ct);
+        if (expired)
+        {
+            await CancelCoreAsync(userId, orderNumber, [OrderStatus.PendingPayment], "", ReasonPaymentTimeout, ct);
+            return OrderResult.Fail("결제 시간이 지나 주문이 취소되었습니다. 다시 주문해 주세요.");
+        }
+        return OrderResult.Fail("결제할 수 있는 주문이 아닙니다.");
     }
 
     /// <summary>가상 결제 실패: 주문을 취소하고 재고를 되돌린다</summary>
     public Task<OrderResult> FailPaymentAsync(string userId, string orderNumber, CancellationToken ct = default) =>
-        CancelCoreAsync(userId, orderNumber, [OrderStatus.PendingPayment], "결제에 실패해 주문이 취소되었습니다.", ct);
+        CancelCoreAsync(userId, orderNumber, [OrderStatus.PendingPayment], "결제에 실패해 주문이 취소되었습니다.", ReasonPaymentFailed, ct);
 
     /// <summary>고객 취소 (배송 준비 전까지)</summary>
     public Task<OrderResult> CancelAsync(string userId, string orderNumber, CancellationToken ct = default) =>
-        CancelCoreAsync(userId, orderNumber, [OrderStatus.PendingPayment, OrderStatus.Paid], "주문을 취소했습니다.", ct);
+        CancelCoreAsync(userId, orderNumber, [OrderStatus.PendingPayment, OrderStatus.Paid], "주문을 취소했습니다.", ReasonCustomer, ct);
+
+    /// <summary>
+    /// 결제 기한이 지난 결제 대기 주문을 취소하고 재고를 되돌린다 (정리 작업이 주기적으로 호출).
+    /// 주문마다 상태 조건부로 취소하므로 그사이 결제가 끝난 주문은 건드리지 않는다.
+    /// </summary>
+    /// <returns>취소한 주문 수</returns>
+    public async Task<int> ExpirePendingOrdersAsync(CancellationToken ct = default)
+    {
+        var cutoff = clock.GetUtcNow().UtcDateTime - PaymentTimeout;
+        var expired = await db.Orders
+            .Where(o => o.Status == OrderStatus.PendingPayment && o.CreatedAt < cutoff)
+            .OrderBy(o => o.Id)
+            .Select(o => o.OrderNumber)
+            .Take(100)
+            .ToListAsync(ct);
+
+        var count = 0;
+        foreach (var orderNumber in expired)
+        {
+            var result = await CancelCoreAsync(null, orderNumber, [OrderStatus.PendingPayment], "", ReasonPaymentTimeout, ct);
+            if (result.Success)
+            {
+                count++;
+            }
+        }
+        return count;
+    }
 
     public Task<Order?> FindForUserAsync(string userId, string orderNumber, CancellationToken ct = default) =>
         db.Orders
@@ -268,7 +318,7 @@ public class OrderService(ApplicationDbContext db, CartService carts, TimeProvid
 
     /// <summary>관리자 취소 (발송 전까지, 재고 복구)</summary>
     public Task<OrderResult> AdminCancelAsync(string orderNumber, CancellationToken ct = default) =>
-        CancelCoreAsync(null, orderNumber, AdminCancellable, "주문을 취소하고 재고를 되돌렸습니다.", ct);
+        CancelCoreAsync(null, orderNumber, AdminCancellable, "주문을 취소하고 재고를 되돌렸습니다.", ReasonAdmin, ct);
 
     public Task<Order?> FindForAdminAsync(string orderNumber, CancellationToken ct = default) =>
         db.Orders
@@ -316,7 +366,7 @@ public class OrderService(ApplicationDbContext db, CartService carts, TimeProvid
 
     /// <param name="userId">회원 본인 취소면 회원 Id, 관리자 취소면 null</param>
     private async Task<OrderResult> CancelCoreAsync(string? userId, string orderNumber, OrderStatus[] cancellable,
-        string message, CancellationToken ct)
+        string message, string reason, CancellationToken ct)
     {
         var strategy = db.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync(async () =>
@@ -333,7 +383,8 @@ public class OrderService(ApplicationDbContext db, CartService carts, TimeProvid
                 .Where(o => o.Id == orderId && cancellable.Contains(o.Status))
                 .ExecuteUpdateAsync(s => s
                     .SetProperty(o => o.Status, OrderStatus.Cancelled)
-                    .SetProperty(o => o.CancelledAt, now), ct);
+                    .SetProperty(o => o.CancelledAt, now)
+                    .SetProperty(o => o.CancelReason, reason), ct);
             if (updated == 0)
             {
                 await tx.RollbackAsync(ct);

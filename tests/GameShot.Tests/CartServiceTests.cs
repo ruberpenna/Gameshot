@@ -179,6 +179,43 @@ public sealed class CartServiceTests : IAsyncLifetime
         Assert.Equal(CartLineStatus.Unavailable, inactive.Lines.Single(l => l.VariantId == _game.Id).Status);
     }
 
+    [Fact]
+    public async Task 오래된_비회원_장바구니만_지운다()
+    {
+        var clock = new TestClock();
+        var carts = new CartService(_db, clock);
+        var oldGuest = (await carts.AddAsync(NoCart, _game.Id, 1)).CartId!.Value;
+        var member = new CartOwner(UserId, null);
+        await carts.AddAsync(member, _game.Id, 1);
+
+        clock.Advance(TimeSpan.FromDays(20));
+        var recentGuest = (await carts.AddAsync(NoCart, _cheap.Id, 1)).CartId!.Value;
+        clock.Advance(TimeSpan.FromDays(11));     // oldGuest·회원: 31일, recentGuest: 11일
+
+        var removed = await carts.DeleteStaleGuestCartsAsync(TimeSpan.FromDays(30));
+
+        Assert.Equal(1, removed);
+        Assert.False(await _db.Carts.AnyAsync(c => c.Id == oldGuest));
+        Assert.False(await _db.CartItems.AnyAsync(i => i.CartId == oldGuest));
+        Assert.True(await _db.Carts.AnyAsync(c => c.Id == recentGuest));
+        Assert.Single((await carts.GetViewAsync(member)).Lines);
+    }
+
+    [Fact]
+    public async Task 비회원이_장바구니를_쓰면_보관_기간이_다시_시작된다()
+    {
+        var clock = new TestClock();
+        var carts = new CartService(_db, clock);
+        var guest = new CartOwner(null, (await carts.AddAsync(NoCart, _cheap.Id, 1)).CartId!.Value);
+
+        clock.Advance(TimeSpan.FromDays(25));
+        await carts.AddAsync(guest, _cheap.Id, 1);
+        clock.Advance(TimeSpan.FromDays(25));
+
+        Assert.Equal(0, await carts.DeleteStaleGuestCartsAsync(TimeSpan.FromDays(30)));
+        Assert.Equal(2, Assert.Single((await carts.GetViewAsync(guest)).Lines).Quantity);
+    }
+
     [Theory]
     [InlineData(0, 0)]
     [InlineData(29_999, CartService.ShippingFee)]

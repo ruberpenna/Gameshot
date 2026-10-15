@@ -1,5 +1,6 @@
 @using GameShot.Web.Models.Ordering
 @using GameShot.Web.Services
+@inject GameShot.Web.Services.OrderService Orders
 @model Order
 @{
     ViewData["Title"] = $"주문 {Model.OrderNumber}";
@@ -58,8 +59,14 @@
                     }
                     @if (Model.CancelledAt is { } cancelledAt)
                     {
-                        <dt class="col-4 fw-normal text-muted">취소일시</dt>
-                        <dd class="col-8">@KoreanTime.FromUtc(cancelledAt).ToString("yyyy.MM.dd HH:mm")</dd>
+                        <dt class="col-4 fw-normal text-muted">취소</dt>
+                        <dd class="col-8">
+                            @KoreanTime.FromUtc(cancelledAt).ToString("yyyy.MM.dd HH:mm")
+                            @if (Model.CancelReason is not null)
+                            {
+                                <br /><span class="text-muted">@Model.CancelReason</span>
+                            }
+                        </dd>
                     }
                 </dl>
             </div>
@@ -80,6 +87,9 @@
             @if (Model.CanPay)
             {
                 <a class="btn btn-dark" asp-action="Pay" asp-route-orderNumber="@Model.OrderNumber">결제하기</a>
+                <p class="small text-muted text-center mb-0">
+                    @KoreanTime.FromUtc(Orders.PaymentDeadline(Model)).ToString("MM.dd HH:mm")까지 결제하지 않으면 자동 취소됩니다.
+                </p>
             }
             @if (Model.CanCancel)
             {

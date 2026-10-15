@@ -242,6 +242,18 @@ public class CartService(ApplicationDbContext db, TimeProvider clock)
         return new CartView(lines, subtotal, CalculateShippingFee(subtotal));
     }
 
+    /// <summary>
+    /// 오래 손대지 않은 비회원 장바구니를 지운다 (담긴 상품은 FK 연쇄 삭제). 회원 장바구니는 건드리지 않는다.
+    /// </summary>
+    /// <returns>지운 장바구니 수</returns>
+    public Task<int> DeleteStaleGuestCartsAsync(TimeSpan retention, CancellationToken ct = default)
+    {
+        var cutoff = Now - retention;
+        return db.Carts
+            .Where(c => c.UserId == null && c.UpdatedAt < cutoff)
+            .ExecuteDeleteAsync(ct);
+    }
+
     /// <summary>헤더 배지용: 담긴 상품 종류 수</summary>
     public async Task<int> CountAsync(CartOwner owner, CancellationToken ct = default)
     {

@@ -6,6 +6,7 @@ using GameShot.Web.Models.Ordering;
 using GameShot.Web.Services;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace GameShot.Tests;
 
@@ -15,6 +16,8 @@ public sealed class OrderServiceTests : IAsyncLifetime
     private ApplicationDbContext _db = null!;
     private CartService _carts = null!;
     private OrderService _orders = null!;
+    private readonly TestClock _clock = new();
+    private readonly ShopOptions _options = new() { PaymentTimeout = TimeSpan.FromMinutes(30) };
 
     private ProductVariant _game = null!;   // 40,000원 / 재고 5
     private ProductVariant _last = null!;   // 20,000원 / 재고 1
@@ -35,8 +38,8 @@ public sealed class OrderServiceTests : IAsyncLifetime
         await _connection.OpenAsync();
         _db = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlite(_connection).Options);
         await _db.Database.EnsureCreatedAsync();
-        _carts = new CartService(_db, TimeProvider.System);
-        _orders = new OrderService(_db, _carts, TimeProvider.System);
+        _carts = new CartService(_db, _clock);
+        _orders = new OrderService(_db, _carts, _clock, Options.Create(_options));
 
         var ps5 = new Platform { Code = "ps5", Name = "PlayStation 5" };
         _game = new ProductVariant { Platform = ps5, Sku = "GAME", ListPrice = 45000, SalePrice = 40000, Stock = 5, Edition = "디럭스" };
@@ -210,6 +213,84 @@ public sealed class OrderServiceTests : IAsyncLifetime
         Assert.Equal(2, summary.ItemCount);
         Assert.Equal("게임", summary.FirstItemTitle);
         Assert.Equal("서울 강남구 테헤란로 1", (await _orders.GetLastShippingAsync(Alice))!.Address1);
+    }
+
+    // ---- 결제 기한 ----
+
+    [Fact]
+    public async Task 결제_기한이_지난_주문만_취소되고_재고가_돌아온다()
+    {
+        await AddToCart(Alice, _game, 2);
+        var old = (await PlaceOrder(Alice)).OrderNumber!;
+        _clock.Advance(TimeSpan.FromMinutes(20));
+        await AddToCart(Alice, _game, 1);
+        var recent = (await PlaceOrder(Alice)).OrderNumber!;
+        Assert.Equal(2, await StockOf(_game));
+
+        _clock.Advance(TimeSpan.FromMinutes(11));   // old: 31분 경과, recent: 11분 경과
+        var expired = await _orders.ExpirePendingOrdersAsync();
+
+        Assert.Equal(1, expired);
+        var oldOrder = await _orders.FindForUserAsync(Alice, old);
+        Assert.Equal(OrderStatus.Cancelled, oldOrder!.Status);
+        Assert.Equal(OrderService.ReasonPaymentTimeout, oldOrder.CancelReason);
+        Assert.Equal(OrderStatus.PendingPayment, (await _orders.FindForUserAsync(Alice, recent))!.Status);
+        Assert.Equal(4, await StockOf(_game));
+
+        // 다시 돌려도 이미 처리한 주문은 건드리지 않는다
+        Assert.Equal(0, await _orders.ExpirePendingOrdersAsync());
+        Assert.Equal(4, await StockOf(_game));
+    }
+
+    [Fact]
+    public async Task 결제를_마친_주문은_기한이_지나도_취소되지_않는다()
+    {
+        await AddToCart(Alice, _game, 1);
+        var no = (await PlaceOrder(Alice)).OrderNumber!;
+        await _orders.CompletePaymentAsync(Alice, no);
+
+        _clock.Advance(TimeSpan.FromHours(2));
+
+        Assert.Equal(0, await _orders.ExpirePendingOrdersAsync());
+        Assert.Equal(OrderStatus.Paid, (await _orders.FindForUserAsync(Alice, no))!.Status);
+        Assert.Equal(4, await StockOf(_game));
+    }
+
+    [Fact]
+    public async Task 기한이_지난_뒤_결제하면_거부하고_그_자리에서_취소한다()
+    {
+        await AddToCart(Alice, _game, 1);
+        var no = (await PlaceOrder(Alice)).OrderNumber!;
+        _clock.Advance(TimeSpan.FromMinutes(31));
+
+        // 정리 작업이 아직 안 돌았어도 결제는 막혀야 한다
+        var pay = await _orders.CompletePaymentAsync(Alice, no);
+
+        Assert.False(pay.Success);
+        Assert.Contains("결제 시간이 지나", pay.Message);
+        var order = await _orders.FindForUserAsync(Alice, no);
+        Assert.Equal(OrderStatus.Cancelled, order!.Status);
+        Assert.Equal(OrderService.ReasonPaymentTimeout, order.CancelReason);
+        Assert.Equal(5, await StockOf(_game));
+    }
+
+    [Fact]
+    public async Task 기한_직전에는_결제할_수_있고_취소_사유가_종류별로_남는다()
+    {
+        await AddToCart(Alice, _game, 1);
+        var paid = (await PlaceOrder(Alice)).OrderNumber!;
+        _clock.Advance(TimeSpan.FromMinutes(29));
+        Assert.True((await _orders.CompletePaymentAsync(Alice, paid)).Success);
+        Assert.Equal(_clock.Now.UtcDateTime.AddMinutes(-29).AddMinutes(30),
+            _orders.PaymentDeadline((await _orders.FindForUserAsync(Alice, paid))!));
+
+        await AddToCart(Alice, _game, 1);
+        var failed = (await PlaceOrder(Alice)).OrderNumber!;
+        await _orders.FailPaymentAsync(Alice, failed);
+        Assert.Equal(OrderService.ReasonPaymentFailed, (await _orders.FindForUserAsync(Alice, failed))!.CancelReason);
+
+        await _orders.CancelAsync(Alice, paid);
+        Assert.Equal(OrderService.ReasonCustomer, (await _orders.FindForUserAsync(Alice, paid))!.CancelReason);
     }
 
     [Theory]

@@ -300,6 +300,10 @@ namespace GameShot.Web.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<DateTime?>("CancelledAt")
                         .HasColumnType("datetime2");
 

@@ -51,6 +51,9 @@ public class Order
     public DateTime? DeliveredAt { get; set; }
     public DateTime? CancelledAt { get; set; }
 
+    /// <summary>취소 사유 (고객 취소, 결제 실패, 결제 시간 초과, 관리자 취소)</summary>
+    public string? CancelReason { get; set; }
+
     /// <summary>택배사 (발송 처리 때 입력)</summary>
     public string? Courier { get; set; }
 

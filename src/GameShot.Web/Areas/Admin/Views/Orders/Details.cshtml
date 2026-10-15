@@ -38,7 +38,7 @@
                 <li class="list-group-item d-flex justify-content-between"><span>배송 완료</span><span>@Time(Model.DeliveredAt)</span></li>
                 @if (Model.CancelledAt is not null)
                 {
-                    <li class="list-group-item d-flex justify-content-between text-danger"><span>주문 취소</span><span>@Time(Model.CancelledAt)</span></li>
+                    <li class="list-group-item d-flex justify-content-between text-danger"><span>주문 취소 (@(Model.CancelReason ?? "사유 없음"))</span><span>@Time(Model.CancelledAt)</span></li>
                 }
             </ul>
         </div>

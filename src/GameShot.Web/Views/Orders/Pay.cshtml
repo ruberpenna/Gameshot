@@ -1,7 +1,9 @@
 @using GameShot.Web.Models.Ordering
+@inject GameShot.Web.Services.OrderService Orders
 @model Order
 @{
     ViewData["Title"] = "결제";
+    var deadlineUtc = DateTime.SpecifyKind(Orders.PaymentDeadline(Model), DateTimeKind.Utc);
 }
 
 <div class="mx-auto" style="max-width: 28rem">
@@ -19,15 +21,19 @@
                     <span>외 @(Model.Items.Count - 1)건</span>
                 }
             </p>
-            <p class="display-6 fw-bold mb-4">@Model.Total.ToString("N0")원</p>
+            <p class="display-6 fw-bold mb-2">@Model.Total.ToString("N0")원</p>
+            <p class="small mb-4" id="deadline" data-deadline="@deadlineUtc.ToString("O")">
+                <strong>@GameShot.Web.Services.KoreanTime.FromUtc(deadlineUtc).ToString("HH:mm")</strong>까지 결제해 주세요.
+                <span class="text-danger" id="remaining"></span>
+            </p>
 
             <div class="alert alert-secondary small">
                 실제 결제창(PG)을 붙이기 전까지 쓰는 연습용 화면입니다. 카드 정보는 받지 않으며 돈도 나가지 않습니다.
-                재고는 이미 잡아 두었고, <strong>결제 실패</strong>를 고르면 주문이 취소되고 재고가 돌아갑니다.
+                재고는 이미 잡아 두었고, <strong>결제 실패</strong>를 고르거나 시간 안에 결제하지 않으면 주문이 취소되고 재고가 돌아갑니다.
             </div>
 
             <form method="post" asp-action="Pay" asp-route-orderNumber="@Model.OrderNumber" class="d-grid gap-2">
-                <button type="submit" name="approve" value="true" class="btn btn-dark btn-lg">결제 승인 (성공)</button>
+                <button type="submit" name="approve" value="true" class="btn btn-dark btn-lg" id="approve">결제 승인 (성공)</button>
                 <button type="submit" name="approve" value="false" class="btn btn-outline-danger">결제 실패로 처리</button>
             </form>
         </div>
@@ -36,3 +42,26 @@
         <a asp-action="Details" asp-route-orderNumber="@Model.OrderNumber" class="text-muted">나중에 결제하기 (주문 상세로)</a>
     </p>
 </div>
+
+@section Scripts {
+    <script>
+        // 남은 시간 표시 (실제 기한 검사는 서버에서 한다)
+        (() => {
+            const el = document.getElementById('deadline');
+            const deadline = new Date(el.dataset.deadline).getTime();
+            const remaining = document.getElementById('remaining');
+            const tick = () => {
+                const left = Math.floor((deadline - Date.now()) / 1000);
+                if (left <= 0) {
+                    remaining.textContent = '결제 시간이 지났습니다.';
+                    document.getElementById('approve').disabled = true;
+                    return;
+                }
+                const m = Math.floor(left / 60), s = String(left % 60).padStart(2, '0');
+                remaining.textContent = `(남은 시간 ${m}:${s})`;
+                setTimeout(tick, 1000);
+            };
+            tick();
+        })();
+    </script>
+}

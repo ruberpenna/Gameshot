@@ -23,6 +23,8 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.R
 builder.Services.AddControllersWithViews();
 
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.Configure<ShopOptions>(builder.Configuration.GetSection(ShopOptions.Section));
+builder.Services.AddHostedService<MaintenanceWorker>();
 builder.Services.AddScoped<CatalogService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<CartService>();
