@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "gameshot",
+      "runtimeExecutable": "C:\\Program Files\\dotnet\\dotnet.exe",
+      "runtimeArgs": ["run", "--project", "G:\\gameshot\\src\\GameShot.Web", "--launch-profile", "http"],
+      "port": 5120
+    }
+  ]
+}

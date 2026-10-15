@@ -1,0 +1,40 @@
+@model (GameShot.Web.Services.ProductCard Card, DateOnly Today)
+@{
+    var card = Model.Card;
+    var preorder = card.ReleaseDate is { } date && date > Model.Today;
+}
+<div class="col">
+    <a class="product-card card h-100 text-decoration-none text-body" asp-controller="Products" asp-action="Details" asp-route-slug="@card.Slug">
+        <div class="product-thumb">
+            @if (card.ThumbnailPath is not null)
+            {
+                <img src="@card.ThumbnailPath" alt="@card.Title" loading="lazy" />
+            }
+            <div class="product-badges">
+                @if (preorder)
+                {
+                    <span class="badge text-bg-primary">예약판매</span>
+                }
+                @if (!card.InStock)
+                {
+                    <span class="badge text-bg-secondary">품절</span>
+                }
+                @if (card.DiscountRate > 0)
+                {
+                    <span class="badge text-bg-danger">@card.DiscountRate%</span>
+                }
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="small text-muted mb-1">@string.Join(" · ", card.Platforms)</div>
+            <div class="product-title">@card.Title</div>
+            <div class="mt-2">
+                @if (card.DiscountRate > 0)
+                {
+                    <span class="text-muted text-decoration-line-through small me-1">@card.ListPriceAtMin?.ToString("N0")원</span>
+                }
+                <strong>@card.MinSalePrice?.ToString("N0")원</strong>
+            </div>
+        </div>
+    </a>
+</div>

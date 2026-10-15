@@ -1,0 +1,29 @@
+@model HomeViewModel
+@{
+    ViewData["Title"] = "홈";
+}
+
+<section class="hero rounded-3 p-4 p-md-5 mb-4">
+    <h1 class="h2 fw-bold mb-2">콘솔 게임은 GameShot</h1>
+    <p class="mb-3">PS5 · Switch 2 · Xbox 신작과 예약판매를 한곳에서.</p>
+    <a class="btn btn-light" asp-controller="Products" asp-action="Index">전체 상품 보기</a>
+</section>
+
+<div class="d-flex justify-content-between align-items-end mb-3">
+    <h2 class="h5 mb-0">신상품</h2>
+    <a class="small" asp-controller="Products" asp-action="Index">더보기</a>
+</div>
+
+@if (Model.NewArrivals.Count == 0)
+{
+    <p class="text-muted">등록된 상품이 없습니다.</p>
+}
+else
+{
+    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3">
+        @foreach (var card in Model.NewArrivals)
+        {
+            <partial name="_ProductCard" model="(card, Model.Today)" />
+        }
+    </div>
+}

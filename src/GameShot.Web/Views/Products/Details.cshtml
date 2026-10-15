@@ -1,0 +1,114 @@
+@using GameShot.Web.Models.Catalog
+@model ProductDetailViewModel
+@{
+    var p = Model.Product;
+    ViewData["Title"] = p.Title;
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb small">
+        <li class="breadcrumb-item"><a asp-action="Index">상품</a></li>
+        @if (p.Genre is not null)
+        {
+            <li class="breadcrumb-item"><a asp-action="Index" asp-route-GenreId="@p.GenreId">@p.Genre.Name</a></li>
+        }
+        <li class="breadcrumb-item active" aria-current="page">@p.Title</li>
+    </ol>
+</nav>
+
+<div class="row g-4">
+    <div class="col-md-5">
+        @if (p.ThumbnailPath is not null)
+        {
+            <img src="@p.ThumbnailPath" alt="@p.Title" class="img-fluid rounded border detail-thumb" />
+        }
+    </div>
+    <div class="col-md-7">
+        @if (Model.IsPreorder)
+        {
+            <span class="badge text-bg-primary mb-2">예약판매 · @p.ReleaseDate?.ToString("yyyy.MM.dd") 발매</span>
+        }
+        <h1 class="h3">@p.Title</h1>
+        @if (!string.IsNullOrEmpty(p.Summary))
+        {
+            <p class="text-muted">@p.Summary</p>
+        }
+
+        <dl class="row small mb-4">
+            @if (!string.IsNullOrEmpty(p.Publisher))
+            {
+                <dt class="col-3">퍼블리셔</dt>
+                <dd class="col-9">@p.Publisher</dd>
+            }
+            @if (p.ReleaseDate is { } release)
+            {
+                <dt class="col-3">발매일</dt>
+                <dd class="col-9">@release.ToString("yyyy년 M월 d일")</dd>
+            }
+            @if (p.Genre is not null)
+            {
+                <dt class="col-3">장르</dt>
+                <dd class="col-9">@p.Genre.Name</dd>
+            }
+        </dl>
+
+        <h2 class="h6">구매 옵션</h2>
+        @if (p.Variants.Count == 0)
+        {
+            <p class="text-muted">현재 판매 중인 옵션이 없습니다.</p>
+        }
+        else
+        {
+            <div class="list-group">
+                @foreach (var v in p.Variants)
+                {
+                    <div class="list-group-item d-flex justify-content-between align-items-center gap-3 @(v.IsSoldOut ? "text-muted" : "")">
+                        <div>
+                            <span class="badge text-bg-dark me-1">@v.Platform.Name</span>
+                            @v.Edition · @v.Language
+                            @if (v.Condition == ItemCondition.Used)
+                            {
+                                <span class="badge text-bg-warning ms-1">중고</span>
+                            }
+                        </div>
+                        <div class="text-end text-nowrap">
+                            @if (v.IsDiscounted)
+                            {
+                                <span class="text-danger small me-1">@v.DiscountRate%</span>
+                                <span class="text-muted text-decoration-line-through small me-1">@v.ListPrice.ToString("N0")원</span>
+                            }
+                            <strong>@v.SalePrice.ToString("N0")원</strong>
+                            <div class="small">
+                                @if (v.IsSoldOut)
+                                {
+                                    <span>품절</span>
+                                }
+                                else if (v.Stock <= 5)
+                                {
+                                    <span class="text-danger">남은 수량 @(v.Stock)개</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+            <p class="small text-muted mt-2">장바구니는 다음 단계에서 붙일 예정입니다.</p>
+        }
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(p.Description) || p.Images.Count > 0)
+{
+    <hr class="my-5" />
+    <h2 class="h5 mb-3">상품 정보</h2>
+    @if (!string.IsNullOrEmpty(p.Description))
+    {
+        <p style="white-space: pre-line">@p.Description</p>
+    }
+    <div class="text-center">
+        @foreach (var image in p.Images)
+        {
+            <img src="@image.Path" alt="@p.Title 상세 이미지" class="img-fluid mb-3" loading="lazy" />
+        }
+    </div>
+}
