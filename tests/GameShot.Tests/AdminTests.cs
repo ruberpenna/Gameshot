@@ -6,6 +6,7 @@ using GameShot.Web.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 
@@ -204,7 +205,7 @@ public sealed class AdminTests : IAsyncLifetime
         var root = Directory.CreateTempSubdirectory("gameshot-test-");
         try
         {
-            var storage = new LocalImageStorage(new FakeEnv(root.FullName));
+            var storage = new LocalImageStorage(new FakeEnv(root.FullName), new ConfigurationBuilder().Build());
             byte[] png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0];
 
             var ok = await storage.SaveProductImageAsync(new MemoryStream(png), "cover.PNG");

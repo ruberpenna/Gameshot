@@ -1,4 +1,8 @@
 using System.Globalization;
+using System.Net;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.Extensions.FileProviders;
 using System.Text.Encodings.Web;
 using System.Text.Unicode;
 using Microsoft.Extensions.WebEncoders;
@@ -13,6 +17,30 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// 운영 설정 (연결 문자열·SMTP 등 비밀값, git 밖). 서비스 환경 변수 GAMESHOT_CONFIG로 파일 위치를 준다
+if (Environment.GetEnvironmentVariable("GAMESHOT_CONFIG") is { Length: > 0 } extraConfig)
+{
+    builder.Configuration.AddJsonFile(extraConfig, optional: false, reloadOnChange: false);
+}
+
+// 로그인 쿠키·재설정 링크를 암호화하는 키를 앱 폴더 밖에 둬서, 다시 배포하거나 재시작해도 로그인이 풀리지 않게
+if (builder.Configuration["DataProtection:KeysPath"] is { Length: > 0 } keysPath)
+{
+    builder.Services.AddDataProtection()
+        .PersistKeysToFileSystem(new DirectoryInfo(keysPath))
+        .SetApplicationName("GameShot");
+}
+
+// 앞단 프록시(Nginx Proxy Manager)가 붙여 주는 원래 클라이언트 IP·프로토콜을 믿는다 (설정에 적은 프록시만)
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    foreach (var proxy in builder.Configuration.GetSection("Proxy:KnownProxies").Get<string[]>() ?? [])
+    {
+        o.KnownProxies.Add(IPAddress.Parse(proxy));
+    }
+});
 
 // 연결 문자열은 user-secrets(개발) 또는 환경 변수(운영)에서 읽는다. tools\import-connection.ps1 참고
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
@@ -74,6 +102,9 @@ builder.Services.AddScoped<ProductAdminService>();
 builder.Services.AddScoped<AdminDashboardService>();
 builder.Services.AddSingleton<IImageStorage, LocalImageStorage>();
 
+// 배포 스크립트·모니터링용 상태 확인 (DB 연결 포함)
+builder.Services.AddHealthChecks().AddDbContextCheck<ApplicationDbContext>("database");
+
 // 관리자 화면 업로드 한도 (이미지 5MB + 여유)
 builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = 6 * 1024 * 1024);
 
@@ -85,8 +116,15 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
+    // 운영에서는 시작할 때 밀린 마이그레이션을 적용한다 (개발은 dotnet ef database update로 직접)
+    if (app.Configuration.GetValue("Database:MigrateOnStartup", false))
+    {
+        await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.MigrateAsync();
+    }
     await AdminBootstrap.RunAsync(scope.ServiceProvider, app.Configuration, app.Logger);
 }
+
+app.UseForwardedHeaders();
 
 if (app.Environment.IsDevelopment())
 {
@@ -103,7 +141,11 @@ else
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+// Cloudflare(Flexible)·프록시가 HTTPS를 맡으면 앱까지는 http로 오므로, 여기서 리다이렉트하면 무한 반복된다
+if (app.Configuration.GetValue("Https:Redirect", true))
+{
+    app.UseHttpsRedirection();
+}
 app.BlockUnsupportedIdentityPages();
 app.UseRouting();
 
@@ -111,7 +153,15 @@ app.UseAuthorization();
 
 app.MapStaticAssets();
 // 관리자가 올린 상품 이미지 (빌드 때 없던 파일이라 MapStaticAssets가 모름)
-app.UseStaticFiles();
+var uploadsRoot = LocalImageStorage.UploadsRoot(app.Configuration, app.Environment);
+Directory.CreateDirectory(uploadsRoot);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploadsRoot),
+    RequestPath = "/uploads",
+});
+
+app.MapHealthChecks("/healthz");
 
 app.MapControllerRoute(
     name: "areas",

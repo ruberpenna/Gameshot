@@ -1,4 +1,4 @@
-namespace GameShot.Web.Services;
+﻿namespace GameShot.Web.Services;
 
 public record ImageSaveResult(bool Success, string? Path, string? Error)
 {
@@ -12,12 +12,20 @@ public interface IImageStorage
 }
 
 /// <summary>
-/// 상품 이미지를 wwwroot/uploads/products 아래에 저장한다.
+/// 상품 이미지를 업로드 폴더(기본 wwwroot/uploads)의 products 아래에 저장한다.
 /// 확장자만 믿지 않고 파일 앞부분(매직 넘버)으로 실제 이미지인지 확인하고, 파일 이름은 새로 만든다.
 /// </summary>
-public class LocalImageStorage(IWebHostEnvironment env) : IImageStorage
+public class LocalImageStorage(IWebHostEnvironment env, IConfiguration config) : IImageStorage
 {
     public const long MaxBytes = 5 * 1024 * 1024;
+
+    /// <summary>
+    /// 업로드 폴더 (URL은 /uploads/...). 운영에서는 Storage:UploadsPath로 앱 폴더 밖을 줘서 다시 배포해도 지워지지 않게 한다.
+    /// </summary>
+    public static string UploadsRoot(IConfiguration config, IWebHostEnvironment env) =>
+        config["Storage:UploadsPath"] is { Length: > 0 } path
+            ? Path.GetFullPath(path)
+            : Path.Combine(env.WebRootPath, "uploads");
 
     private static readonly Dictionary<string, byte[][]> Signatures = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -56,7 +64,7 @@ public class LocalImageStorage(IWebHostEnvironment env) : IImageStorage
         }
 
         var month = DateTime.UtcNow.ToString("yyyyMM");
-        var dir = Path.Combine(env.WebRootPath, "uploads", "products", month);
+        var dir = Path.Combine(UploadsRoot(config, env), "products", month);
         Directory.CreateDirectory(dir);
         var name = $"{Guid.NewGuid():N}{(ext == ".jpeg" ? ".jpg" : ext)}";
         await File.WriteAllBytesAsync(Path.Combine(dir, name), bytes, ct);
